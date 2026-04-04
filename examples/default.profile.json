@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "profile_name": "default",
+  "repo_root": "<repo_root>",
+  "memory_root": "<workspace_root>/.agent-memory",
+  "backup_root": "<workspace_root>/backups"
+}
