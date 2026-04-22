@@ -20,3 +20,6 @@ env/
 Thumbs.db
 *.log
 *.tmp
+
+# Agent memory (local, not committed)
+.agent-memory/

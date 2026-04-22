@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import io
 import json
@@ -35,6 +35,9 @@ class OperatorIntegrationTests(unittest.TestCase):
                 "## portable-project-bootstrap",
                 (workspace_root / ".agent-memory" / "PROJECT_INDEX.md").read_text(encoding="utf-8"),
             )
+            self.assertTrue(
+                (workspace_root / "repos" / "portable-project-bootstrap" / ".agent-memory" / "PROJECT.md").exists()
+            )
 
     def test_partial_force_fixture_requires_force_then_executes(self) -> None:
         with self._materialized_fixture("partial_force") as workspace_root:
@@ -56,7 +59,7 @@ class OperatorIntegrationTests(unittest.TestCase):
             self.assertEqual("", stderr)
             self.assertIn("bootstrap_log_status: applied", stdout)
             self.assertTrue(
-                (workspace_root / ".agent-memory" / "portable-project-bootstrap" / "START_HERE.md").exists()
+                (workspace_root / "repos" / "portable-project-bootstrap" / ".agent-memory" / "PROJECT.md").exists()
             )
 
     def test_multi_profile_fixture_covers_manual_patch_and_alt_profile_variant(self) -> None:
@@ -85,6 +88,9 @@ class OperatorIntegrationTests(unittest.TestCase):
             self.assertIn("project_index_status: applied", stdout)
             self.assertTrue(
                 (workspace_root / "repos-alt" / "portable-project-bootstrap" / "README.md").exists()
+            )
+            self.assertTrue(
+                (workspace_root / ".agent-memory-alt" / "portable-project-bootstrap" / "PROJECT.md").exists()
             )
 
     def _run_operator(
@@ -153,6 +159,7 @@ class OperatorIntegrationTests(unittest.TestCase):
             repo_root=workspace_root / "repos",
             memory_root=workspace_root / ".agent-memory",
             backup_root=workspace_root / "backups",
+            memory_mode="inline",
         )
         if fixture_name == "multi_profile":
             self._write_profile(
@@ -161,6 +168,7 @@ class OperatorIntegrationTests(unittest.TestCase):
                 repo_root=workspace_root / "repos-alt",
                 memory_root=workspace_root / ".agent-memory-alt",
                 backup_root=workspace_root / "backups-alt",
+                memory_mode="external",
             )
 
     def _write_profile(
@@ -171,6 +179,7 @@ class OperatorIntegrationTests(unittest.TestCase):
         repo_root: Path,
         memory_root: Path,
         backup_root: Path,
+        memory_mode: str,
     ) -> None:
         path.write_text(
             json.dumps(
@@ -180,6 +189,7 @@ class OperatorIntegrationTests(unittest.TestCase):
                     "repo_root": str(repo_root),
                     "memory_root": str(memory_root),
                     "backup_root": str(backup_root),
+                    "memory_mode": memory_mode,
                 },
                 indent=2,
             ),
@@ -189,3 +199,4 @@ class OperatorIntegrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

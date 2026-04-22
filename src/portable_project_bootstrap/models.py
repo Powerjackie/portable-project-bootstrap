@@ -41,12 +41,15 @@ class WorkspaceProfile:
     memory_root: Path
     backup_root: Path
     schema_version: int = 1
+    memory_mode: str = "inline"
 
     def __post_init__(self) -> None:
         if not self.profile_name.strip():
             raise PlanningError("profile_name must not be empty")
         if not isinstance(self.schema_version, int) or self.schema_version < 1:
             raise PlanningError("schema_version must be a positive integer")
+        if self.memory_mode not in {"inline", "external"}:
+            raise PlanningError("memory_mode must be one of: inline, external")
         for field_name in ("repo_root", "memory_root", "backup_root"):
             path = getattr(self, field_name)
             if not isinstance(path, Path):
@@ -59,8 +62,7 @@ class WorkspaceProfile:
 class WorkspaceContext:
     profile: WorkspaceProfile
     project_index_path: Path
-    workspace_start_here_path: Path | None = None
-    workspace_rules_path: Path | None = None
+    workspace_doc_path: Path | None = None
     resolved_profile_path: Path | None = None
     resolved_profile_source: str | None = None
 
@@ -70,8 +72,7 @@ class WorkspaceContext:
         if not str(self.project_index_path).strip():
             raise PlanningError("project_index_path must not be empty")
         for field_name in (
-            "workspace_start_here_path",
-            "workspace_rules_path",
+            "workspace_doc_path",
             "resolved_profile_path",
         ):
             value = getattr(self, field_name)
@@ -145,6 +146,7 @@ class PlannedAction:
     reason: str
     render_content: str | None = None
     patch_content: str | None = None
+    expected_content: str | None = None
     details: tuple[str, ...] = ()
 
 
@@ -154,6 +156,7 @@ class ProjectIndexUpdatePlan:
     action: PlannedAction
     rendered_entry: str | None = None
     manual_patch: str | None = None
+    update_reasons: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -166,6 +169,7 @@ class BootstrapSummary:
     update_project_index: bool
     dry_run: bool
     project_index_result: str
+    project_index_update_reasons: tuple[str, ...] = ()
     create_targets: tuple[str, ...] = ()
     skip_targets: tuple[str, ...] = ()
     safe_patch_targets: tuple[str, ...] = ()
@@ -182,6 +186,7 @@ class BootstrapSummary:
             f"backup_path: {self.backup_path}",
             f"update_project_index: {str(self.update_project_index).lower()}",
             f"project_index_result: {self.project_index_result}",
+            f"project_index_update_reasons: {format_list(self.project_index_update_reasons)}",
             f"dry_run: {str(self.dry_run).lower()}",
             f"create_targets: {format_list(self.create_targets)}",
             f"skip_targets: {format_list(self.skip_targets)}",
@@ -259,8 +264,8 @@ class ExplicitEntrypointRequest:
     memory_root: Path
     backup_root: Path
     project_index_path: Path
-    workspace_start_here_path: Path | None = None
-    workspace_rules_path: Path | None = None
+    workspace_doc_path: Path | None = None
+    memory_mode: str = "inline"
     project_name: str = ""
     project_slug: str = ""
     project_summary: str = ""

@@ -1,13 +1,16 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
+import importlib
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from portable_project_bootstrap import (
     CURRENT_PROFILE_SCHEMA_VERSION,
     CompatibilityBridgeRequest,
+    run_compatibility_bridge,
     ShadowModeError,
     format_shadow_result_lines,
     run_shadow_mode,
@@ -27,8 +30,8 @@ def sample_project_index() -> str:
 - Memory root:
   - `X:\\memory\\existing-project`
 - Read-first files:
-  - `X:\\memory\\existing-project\\START_HERE.md`
-  - `X:\\memory\\existing-project\\PROJECT_RULES.md`
+  - `X:\\memory\\existing-project\\PROJECT.md`
+  - `X:\\memory\\existing-project\\PROJECT.md`
 - Optional files:
   - `X:\\memory\\existing-project\\AI_HANDOVER.md`
   - `X:\\memory\\existing-project\\AGENT_DESIGN.md`
@@ -61,6 +64,31 @@ class ShadowModeTests(unittest.TestCase):
             with self.assertRaisesRegex(ShadowModeError, "compare-only"):
                 run_shadow_mode(self._request(workspace_root=workspace_root, execute=True))
 
+    def test_shadow_compare_detects_action_content_differences(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace_root = Path(temp_dir)
+            self._write_workspace_profile(workspace_root)
+            request = self._request(workspace_root=workspace_root)
+            result = run_compatibility_bridge(request)
+            shadow_module = importlib.import_module("portable_project_bootstrap.shadow")
+
+            changed_action = replace(
+                result.planning_result.actions[0],
+                render_content=(result.planning_result.actions[0].render_content or "") + "drift",
+            )
+            changed_planning_result = replace(
+                result.planning_result,
+                actions=(changed_action, *result.planning_result.actions[1:]),
+            )
+            changed_result = replace(result, planning_result=changed_planning_result)
+
+            differences = shadow_module._compare_results(
+                operator_result=result,
+                explicit_result=changed_result,
+            )
+
+            self.assertIn("planned action signature differs", differences)
+
     def _request(self, *, workspace_root: Path, execute: bool = False) -> CompatibilityBridgeRequest:
         return CompatibilityBridgeRequest(
             workspace_root=workspace_root,
@@ -81,8 +109,8 @@ class ShadowModeTests(unittest.TestCase):
         memory_root.mkdir()
         backup_root.mkdir()
         (memory_root / "PROJECT_INDEX.md").write_text(sample_project_index(), encoding="utf-8")
-        (memory_root / "WORKSPACE_START_HERE.md").write_text("start\n", encoding="utf-8")
-        (memory_root / "WORKSPACE_RULES.md").write_text("rules\n", encoding="utf-8")
+        (memory_root / "WORKSPACE.md").write_text("start\n", encoding="utf-8")
+        (memory_root / "WORKSPACE.md").write_text("rules\n", encoding="utf-8")
         profile_dir = memory_root / "machine-profiles"
         profile_dir.mkdir(parents=True, exist_ok=True)
         (profile_dir / "default.json").write_text(
@@ -102,3 +130,4 @@ class ShadowModeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -158,10 +158,17 @@ class BootstrapExecutor:
         if action.target_kind == TargetKind.STRUCTURED_FILE:
             if action.patch_content is None:
                 raise ExecutionError(f"structured safe patch action is missing patch content: {action.target_path}")
+            if action.expected_content is None:
+                raise ExecutionError(f"structured safe patch action is missing expected content: {action.target_path}")
             if not action.target_path.exists():
                 raise ExecutionError(f"planned structured file is missing: {action.target_path}")
             if action.target_path.is_dir():
                 raise ExecutionError(f"planned structured safe patch target is a directory: {action.target_path}")
+            current_content = action.target_path.read_text(encoding="utf-8")
+            if current_content != action.expected_content:
+                raise ExecutionError(
+                    f"planned structured safe patch target changed since planning: {action.target_path}"
+                )
             action.target_path.write_text(action.patch_content, encoding="utf-8")
             return
         raise ExecutionError(f"unsupported safe patch target kind: {action.target_kind}")

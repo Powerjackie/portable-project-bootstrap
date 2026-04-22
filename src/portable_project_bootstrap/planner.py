@@ -15,7 +15,12 @@ from .models import (
     TargetKind,
     WorkspaceContext,
 )
-from .project_index import parse_project_index_document, upsert_project_index_record
+from .project_index import (
+    compare_project_index_records,
+    parse_project_index_document,
+    parse_project_index_record_block,
+    upsert_project_index_record,
+)
 from .templates import is_memory_file_key, render_project_index_entry, render_template_set
 
 
@@ -84,9 +89,14 @@ class BootstrapPlanner:
 
     def _project_paths(self, *, context: WorkspaceContext, request: BootstrapRequest) -> ProjectPaths:
         slug = request.project_slug.strip()
+        repo_path = context.profile.repo_root / slug
+        if context.profile.memory_mode == "inline":
+            memory_path = repo_path / ".agent-memory"
+        else:
+            memory_path = context.profile.memory_root / slug
         return ProjectPaths(
-            repo_path=context.profile.repo_root / slug,
-            memory_path=context.profile.memory_root / slug,
+            repo_path=repo_path,
+            memory_path=memory_path,
             backup_path=context.profile.backup_root / slug,
         )
 
@@ -221,6 +231,7 @@ class BootstrapPlanner:
         entry = render_project_index_entry(context=context, request=request, paths=paths)
         try:
             document = parse_project_index_document(text)
+            desired_record = parse_project_index_record_block(entry)
         except ProjectIndexParseError:
             manual_patch = self._manual_patch_text(entry=entry, project_index_path=context.project_index_path)
             action = PlannedAction(
@@ -236,11 +247,12 @@ class BootstrapPlanner:
                 action=action,
                 rendered_entry=entry,
                 manual_patch=manual_patch,
+                update_reasons=("project_index_parse_failed",),
             )
 
-        sections = {record.project_slug: record.raw_section for record in document.records}
-        existing = sections.get(request.project_slug)
-        if existing is None:
+        existing_records = {record.project_slug: record for record in document.records}
+        existing_record = existing_records.get(request.project_slug)
+        if existing_record is None:
             updated_content = upsert_project_index_record(
                 document,
                 project_slug=request.project_slug,
@@ -252,15 +264,18 @@ class BootstrapPlanner:
                 target_path=context.project_index_path,
                 reason="project index is parseable and missing the requested slug entry",
                 patch_content=updated_content,
+                expected_content=text,
                 details=("must_exist", "file"),
             )
             return ProjectIndexUpdatePlan(
                 result="added",
                 action=action,
                 rendered_entry=entry,
+                update_reasons=("missing_slug_entry",),
             )
 
-        if self._index_entry_matches(existing=existing, paths=paths):
+        comparison = compare_project_index_records(existing=existing_record, desired=desired_record)
+        if not comparison.has_changes:
             action = PlannedAction(
                 kind=ActionKind.SKIP,
                 target_kind=TargetKind.STRUCTURED_FILE,
@@ -268,9 +283,40 @@ class BootstrapPlanner:
                 reason="project index already contains a matching entry for this slug",
                 details=("must_exist", "file"),
             )
-            return ProjectIndexUpdatePlan(result="unchanged", action=action, rendered_entry=entry)
+            return ProjectIndexUpdatePlan(
+                result="unchanged",
+                action=action,
+                rendered_entry=entry,
+            )
 
-        manual_patch = self._manual_patch_text(entry=entry, project_index_path=context.project_index_path)
+        if not comparison.path_conflict_fields:
+            updated_content = upsert_project_index_record(
+                document,
+                project_slug=request.project_slug,
+                rendered_entry=entry,
+            )
+            action = PlannedAction(
+                kind=ActionKind.SAFE_PATCH,
+                target_kind=TargetKind.STRUCTURED_FILE,
+                target_path=context.project_index_path,
+                reason="project index entry paths still match and can be refreshed safely",
+                patch_content=updated_content,
+                expected_content=text,
+                details=("must_exist", "file"),
+            )
+            return ProjectIndexUpdatePlan(
+                result="updated",
+                action=action,
+                rendered_entry=entry,
+                update_reasons=comparison.changed_fields,
+            )
+
+        manual_patch = self._manual_patch_text(
+            entry=entry,
+            project_index_path=context.project_index_path,
+            project_slug=request.project_slug,
+            replace_existing=True,
+        )
         action = PlannedAction(
             kind=ActionKind.MANUAL_PATCH,
             target_kind=TargetKind.STRUCTURED_FILE,
@@ -284,16 +330,23 @@ class BootstrapPlanner:
             action=action,
             rendered_entry=entry,
             manual_patch=manual_patch,
+            update_reasons=comparison.all_reasons,
         )
 
-    def _index_entry_matches(self, *, existing: str, paths: ProjectPaths) -> bool:
-        return (
-            f"`{paths.repo_path}`" in existing
-            and f"`{paths.memory_path}`" in existing
-            and f"`{paths.backup_path}`" in existing
-        )
-
-    def _manual_patch_text(self, *, entry: str, project_index_path: Path) -> str:
+    def _manual_patch_text(
+        self,
+        *,
+        entry: str,
+        project_index_path: Path,
+        project_slug: str | None = None,
+        replace_existing: bool = False,
+    ) -> str:
+        if replace_existing and project_slug:
+            return (
+                f"Replace the existing `## {project_slug}` section in `{project_index_path}` "
+                "with this block:\n\n"
+                f"{entry}\n"
+            )
         return (
             f"Insert this section into `{project_index_path}` in slug-sorted order:\n\n"
             f"{entry}\n"
@@ -358,6 +411,7 @@ class BootstrapPlanner:
             update_project_index=request.update_project_index,
             dry_run=request.dry_run,
             project_index_result=index_plan.result,
+            project_index_update_reasons=index_plan.update_reasons,
             create_targets=create_targets,
             skip_targets=skip_targets,
             safe_patch_targets=safe_patch_targets,

@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from .models import OverallStatus, WorkspaceValidationResult
-from .profile_loader import load_workspace_context
+from .profile_loader import compatibility_profile_warning, load_workspace_context
 
 
 def validate_workspace(
@@ -44,10 +44,7 @@ def validate_workspace(
             "memory_root": str(context.profile.memory_root),
             "backup_root": str(context.profile.backup_root),
             "project_index_path": str(context.project_index_path),
-            "workspace_start_here_path": str(context.workspace_start_here_path)
-            if context.workspace_start_here_path
-            else "none",
-            "workspace_rules_path": str(context.workspace_rules_path) if context.workspace_rules_path else "none",
+            "workspace_doc_path": str(context.workspace_doc_path) if context.workspace_doc_path else "none",
         }
     )
 
@@ -75,9 +72,7 @@ def validate_workspace(
             problems.append(f"required suite entry is missing: {resolved_paths[key]}")
 
     if context.resolved_profile_source == "compatibility":
-        warnings.append(
-            "compatibility profile path is in use; prefer the primary `.agent-memory/machine-profiles/<profile>.json` path"
-        )
+        warnings.append(compatibility_profile_warning())
     if not suite_overview_path.is_file():
         warnings.append(
             "suite overview documentation is missing at docs/workspace-suite-overview.md"

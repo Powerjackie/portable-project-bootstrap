@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -23,6 +23,7 @@ class OperatorSubprocessTests(unittest.TestCase):
             self.assertEqual(0, result.returncode)
             self.assertIn("dry_run: true", result.stdout)
             self.assertIn("project_index_result: added", result.stdout)
+            self.assertIn("project_index_update_reasons: [missing_slug_entry]", result.stdout)
             self.assertEqual("", result.stderr)
 
     def test_subprocess_execute_success(self) -> None:
@@ -50,6 +51,7 @@ class OperatorSubprocessTests(unittest.TestCase):
             self.assertEqual(0, result.returncode)
             self.assertIn("manual_patch_output:", result.stdout)
             self.assertIn("Insert this section into", result.stdout)
+            self.assertIn("project_index_update_reasons: [project_index_parse_failed]", result.stdout)
 
     def test_subprocess_invalid_profile_schema_fails(self) -> None:
         with self._materialized_fixture("brand_new") as workspace_root:
@@ -64,11 +66,13 @@ class OperatorSubprocessTests(unittest.TestCase):
 
     def test_subprocess_missing_workspace_file_fails(self) -> None:
         with self._materialized_fixture("brand_new") as workspace_root:
+            (workspace_root / ".agent-memory" / "WORKSPACE.md").unlink()
             (workspace_root / ".agent-memory" / "WORKSPACE_RULES.md").unlink()
+            (workspace_root / ".agent-memory" / "WORKSPACE_START_HERE.md").unlink()
 
             result = self._run_module(workspace_root=workspace_root, profile_name="default")
             self.assertEqual(1, result.returncode)
-            self.assertIn("workspace_rules_path", result.stderr)
+            self.assertIn("workspace_doc_path", result.stderr)
 
     def _run_module(
         self,
@@ -183,3 +187,4 @@ class OperatorSubprocessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -11,7 +11,7 @@ from .models import (
     WorkspaceRouteQuery,
     WorkspaceRouteResult,
 )
-from .profile_loader import load_workspace_context
+from .profile_loader import compatibility_profile_warning, load_workspace_context
 from .project_index import load_project_index_document
 
 
@@ -47,9 +47,7 @@ def route_workspace(
         }
     )
     if context.resolved_profile_source == "compatibility":
-        warnings.append(
-            "compatibility profile path is in use; prefer the primary `.agent-memory/machine-profiles/<profile>.json` path"
-        )
+        warnings.append(compatibility_profile_warning())
 
     try:
         document = load_project_index_document(context.project_index_path)
@@ -152,7 +150,7 @@ def route_workspace(
         warnings=tuple(warnings),
         next_steps=tuple(
             [f"Read `{path}` first." for path in matched.read_first_files]
-            or ("Read the project memory START_HERE and PROJECT_RULES files first.",)
+            or ("Read the project memory PROJECT.md file first.",)
         ),
         resolved_paths=resolved_paths,
     )

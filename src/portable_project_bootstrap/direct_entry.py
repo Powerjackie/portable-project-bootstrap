@@ -18,10 +18,10 @@ def run_explicit_entry(args: ExplicitEntrypointRequest) -> CompatibilityBridgeRe
             repo_root=args.repo_root,
             memory_root=args.memory_root,
             backup_root=args.backup_root,
+            memory_mode=args.memory_mode,
         ),
         project_index_path=args.project_index_path,
-        workspace_start_here_path=args.workspace_start_here_path,
-        workspace_rules_path=args.workspace_rules_path,
+        workspace_doc_path=args.workspace_doc_path,
     )
     request = BootstrapRequest(
         project_name=args.project_name,

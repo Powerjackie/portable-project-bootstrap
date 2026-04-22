@@ -7,6 +7,8 @@ from .direct_entry import run_explicit_entry
 from .models import ExplicitEntrypointRequest
 from .operator_cli import format_bridge_result_lines
 
+DEPRECATED_WORKSPACE_DOC_ARGUMENT_SUPPORT_END_DATE = "2026-06-30"
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Plan or execute a portable project bootstrap run.")
@@ -19,8 +21,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--memory-root", required=True)
     parser.add_argument("--backup-root", required=True)
     parser.add_argument("--project-index-path", required=True)
-    parser.add_argument("--workspace-start-here")
-    parser.add_argument("--workspace-rules")
+    parser.add_argument("--workspace-doc")
+    parser.add_argument(
+        "--workspace-start-here",
+        help=(
+            "Deprecated compatibility alias for --workspace-doc. "
+            f"Supported only through {DEPRECATED_WORKSPACE_DOC_ARGUMENT_SUPPORT_END_DATE}."
+        ),
+    )
+    parser.add_argument(
+        "--workspace-rules",
+        help=(
+            "Deprecated compatibility alias for --workspace-doc. "
+            f"Supported only through {DEPRECATED_WORKSPACE_DOC_ARGUMENT_SUPPORT_END_DATE}."
+        ),
+    )
     parser.add_argument("--create-session-bootstrap", action="store_true", default=False)
     parser.add_argument("--update-project-index", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--dry-run", action="store_true", default=False)
@@ -53,8 +68,7 @@ def main(argv: list[str] | None = None) -> int:
             memory_root=Path(args.memory_root),
             backup_root=Path(args.backup_root),
             project_index_path=Path(args.project_index_path),
-            workspace_start_here_path=Path(args.workspace_start_here) if args.workspace_start_here else None,
-            workspace_rules_path=Path(args.workspace_rules) if args.workspace_rules else None,
+            workspace_doc_path=_workspace_doc_arg(args),
             project_name=args.project_name,
             project_slug=args.project_slug,
             project_summary=args.project_summary,
@@ -91,3 +105,13 @@ def _normalize_list(values: list[str]) -> list[str]:
                 seen.add(item)
                 normalized.append(item)
     return normalized
+
+
+def _workspace_doc_arg(args: argparse.Namespace) -> Path | None:
+    if args.workspace_doc:
+        return Path(args.workspace_doc)
+    if args.workspace_rules:
+        return Path(args.workspace_rules)
+    if args.workspace_start_here:
+        return Path(args.workspace_start_here)
+    return None

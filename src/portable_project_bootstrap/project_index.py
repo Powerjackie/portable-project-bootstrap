@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from .errors import ProjectIndexParseError
@@ -8,6 +9,20 @@ from .models import ProjectIndexDocument, ProjectIndexRecord
 
 
 _SECTION_RE = re.compile(r"(?m)^##\s+(.+?)\s*$")
+
+
+@dataclass(frozen=True)
+class ProjectIndexComparison:
+    changed_fields: tuple[str, ...] = ()
+    path_conflict_fields: tuple[str, ...] = ()
+
+    @property
+    def has_changes(self) -> bool:
+        return bool(self.changed_fields or self.path_conflict_fields)
+
+    @property
+    def all_reasons(self) -> tuple[str, ...]:
+        return self.path_conflict_fields + self.changed_fields
 
 
 def load_project_index_document(path: Path) -> ProjectIndexDocument:
@@ -54,8 +69,58 @@ def upsert_project_index_record(
     return body + "\n"
 
 
+def parse_project_index_record_block(block: str) -> ProjectIndexRecord:
+    document = parse_project_index_document(block.strip() + "\n")
+    if len(document.records) != 1:
+        raise ProjectIndexParseError("expected exactly one project index record block")
+    return document.records[0]
+
+
+def compare_project_index_records(
+    *,
+    existing: ProjectIndexRecord,
+    desired: ProjectIndexRecord,
+) -> ProjectIndexComparison:
+    if existing.project_slug != desired.project_slug:
+        raise ProjectIndexParseError("cannot compare project index records with different slugs")
+
+    path_conflict_fields: list[str] = []
+    changed_fields: list[str] = []
+
+    if existing.canonical_repo_paths != desired.canonical_repo_paths:
+        path_conflict_fields.append("canonical_repo_paths")
+    if existing.memory_root != desired.memory_root:
+        path_conflict_fields.append("memory_root")
+
+    for field_name in (
+        "purpose",
+        "read_first_files",
+        "optional_files",
+        "strong_match_signals",
+        "weak_hints",
+        "summary",
+    ):
+        if not _field_values_match(
+            field_name,
+            getattr(existing, field_name),
+            getattr(desired, field_name),
+        ):
+            changed_fields.append(field_name)
+
+    return ProjectIndexComparison(
+        changed_fields=tuple(changed_fields),
+        path_conflict_fields=tuple(path_conflict_fields),
+    )
+
+
 def _parse_record(*, slug: str, block: str) -> ProjectIndexRecord:
     lines = block.splitlines()
+    if any(line.startswith("- Path:") for line in lines):
+        return _parse_compact_record(slug=slug, block=block, lines=lines)
+    return _parse_verbose_record(slug=slug, block=block, lines=lines)
+
+
+def _parse_verbose_record(*, slug: str, block: str, lines: list[str]) -> ProjectIndexRecord:
     purpose = _extract_scalar(lines, "- Purpose:")
     canonical_repo_paths = _extract_list(lines, "- Canonical repo / runtime surface:")
     backup_paths = _extract_list(lines, "- Backup path:")
@@ -78,6 +143,30 @@ def _parse_record(*, slug: str, block: str) -> ProjectIndexRecord:
         summary=summary,
         raw_section=block,
         project_names=_project_names_from_signals(strong_match_signals),
+    )
+
+
+def _parse_compact_record(*, slug: str, block: str, lines: list[str]) -> ProjectIndexRecord:
+    path_line = _extract_scalar(lines, "- Path:")
+    if " | Memory: " not in path_line:
+        raise ProjectIndexParseError("compact PROJECT_INDEX path line must include `| Memory:`")
+    repo_text, memory_text = path_line.split(" | Memory: ", 1)
+    read_first = (_normalize_item(_extract_scalar(lines, "- Read-first:")),)
+    signals = _split_compact_signals(_extract_scalar(lines, "- Signals:"))
+    note = _extract_optional_scalar(lines, "- Note:")
+    return ProjectIndexRecord(
+        project_slug=slug,
+        purpose="",
+        canonical_repo_paths=(_normalize_item(repo_text.strip()),),
+        backup_paths=(),
+        memory_root=_normalize_item(memory_text.strip()),
+        read_first_files=read_first,
+        optional_files=(),
+        strong_match_signals=signals,
+        weak_hints=(),
+        summary=note or "",
+        raw_section=block,
+        project_names=_project_names_from_signals(signals),
     )
 
 
@@ -130,3 +219,29 @@ def _project_names_from_signals(signals: tuple[str, ...]) -> tuple[str, ...]:
                 seen.add(project_name.casefold())
                 values.append(project_name)
     return tuple(values)
+
+
+def _extract_optional_scalar(lines: list[str], header: str) -> str | None:
+    prefix = f"{header} "
+    for line in lines:
+        if line.startswith(prefix):
+            value = line[len(prefix) :].strip()
+            return value or None
+    return None
+
+
+def _split_compact_signals(value: str) -> tuple[str, ...]:
+    signals = tuple(_normalize_item(part.strip()) for part in value.split(",") if part.strip())
+    if not signals:
+        raise ProjectIndexParseError("compact PROJECT_INDEX signals must not be empty")
+    return signals
+
+
+def _field_values_match(field_name: str, left, right) -> bool:
+    if field_name in {"strong_match_signals", "weak_hints"}:
+        return _normalized_unordered_values(left) == _normalized_unordered_values(right)
+    return left == right
+
+
+def _normalized_unordered_values(values: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(sorted((value.strip() for value in values if value.strip().casefold() != "none"), key=str.casefold))

@@ -46,8 +46,7 @@ def _explicit_request_from_operator_result(result: CompatibilityBridgeResult) ->
         memory_root=context.profile.memory_root,
         backup_root=context.profile.backup_root,
         project_index_path=context.project_index_path,
-        workspace_start_here_path=context.workspace_start_here_path,
-        workspace_rules_path=context.workspace_rules_path,
+        workspace_doc_path=context.workspace_doc_path,
         project_name=request.project_name,
         project_slug=request.project_slug,
         project_summary=request.project_summary,
@@ -80,6 +79,8 @@ def _compare_results(
         differences.append("summary lines differ")
     if _action_signature(operator_result) != _action_signature(explicit_result):
         differences.append("planned action signature differs")
+    if operator_result.planning_result.rendered_files != explicit_result.planning_result.rendered_files:
+        differences.append("rendered file content differs")
     if operator_result.planning_result.index_update_plan.result != explicit_result.planning_result.index_update_plan.result:
         differences.append("project index result differs")
     if operator_result.manual_patch_output != explicit_result.manual_patch_output:
@@ -87,13 +88,18 @@ def _compare_results(
     return tuple(differences)
 
 
-def _action_signature(result: CompatibilityBridgeResult) -> tuple[tuple[str, str, str, tuple[str, ...]], ...]:
+def _action_signature(
+    result: CompatibilityBridgeResult,
+) -> tuple[tuple[str, str, str, tuple[str, ...], str | None, str | None, str | None], ...]:
     return tuple(
         (
             action.kind.value,
             action.target_kind.value,
             str(action.target_path),
             action.details,
+            action.render_content,
+            action.patch_content,
+            action.expected_content,
         )
         for action in result.planning_result.actions
     )

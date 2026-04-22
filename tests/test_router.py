@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import io
 import json
@@ -7,7 +7,12 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from portable_project_bootstrap import CURRENT_PROFILE_SCHEMA_VERSION, OverallStatus, WorkspaceRouteQuery
+from portable_project_bootstrap import (
+    COMPATIBILITY_SUPPORT_END_DATE,
+    CURRENT_PROFILE_SCHEMA_VERSION,
+    OverallStatus,
+    WorkspaceRouteQuery,
+)
 from portable_project_bootstrap.router import main as router_main
 from portable_project_bootstrap.router import route_workspace
 
@@ -122,7 +127,22 @@ class WorkspaceRouterTests(unittest.TestCase):
             self.assertIn("matched_project_slug: alpha-project", output)
             self.assertIn("read_first_files:", output)
 
-    def _create_workspace(self, temp_root: Path) -> Path:
+    def test_compatibility_profile_returns_partial_with_warning(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace_root = self._create_workspace(Path(temp_dir), profile_mode="compatibility")
+
+            result = route_workspace(
+                workspace_root=workspace_root,
+                profile_name="default",
+                query=WorkspaceRouteQuery(project_slug="alpha-project"),
+            )
+
+            self.assertEqual(OverallStatus.PARTIAL, result.status)
+            self.assertEqual("alpha-project", result.matched_project.project_slug)
+            self.assertTrue(any("compatibility profile path" in item for item in result.warnings))
+            self.assertTrue(any(COMPATIBILITY_SUPPORT_END_DATE in item for item in result.warnings))
+
+    def _create_workspace(self, temp_root: Path, *, profile_mode: str = "primary") -> Path:
         workspace_root = temp_root / "workspace"
         workspace_root.mkdir()
         repo_root = workspace_root / "repos"
@@ -131,24 +151,31 @@ class WorkspaceRouterTests(unittest.TestCase):
         repo_root.mkdir()
         memory_root.mkdir()
         backup_root.mkdir()
-        (memory_root / "WORKSPACE_START_HERE.md").write_text("start\n", encoding="utf-8")
-        (memory_root / "WORKSPACE_RULES.md").write_text("rules\n", encoding="utf-8")
+        (memory_root / "WORKSPACE.md").write_text("workspace\n", encoding="utf-8")
         (memory_root / "PROJECT_INDEX.md").write_text(self._project_index_text(), encoding="utf-8")
-        profile_dir = memory_root / "machine-profiles"
-        profile_dir.mkdir(parents=True, exist_ok=True)
-        (profile_dir / "default.json").write_text(
-            json.dumps(
-                {
-                    "schema_version": CURRENT_PROFILE_SCHEMA_VERSION,
-                    "profile_name": "default",
-                    "repo_root": str(repo_root),
-                    "memory_root": str(memory_root),
-                    "backup_root": str(backup_root),
-                },
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
+        profile_document = {
+            "schema_version": CURRENT_PROFILE_SCHEMA_VERSION,
+            "profile_name": "default",
+            "repo_root": str(repo_root),
+            "memory_root": str(memory_root),
+            "backup_root": str(backup_root),
+        }
+        if profile_mode == "primary":
+            profile_dir = memory_root / "machine-profiles"
+            profile_dir.mkdir(parents=True, exist_ok=True)
+            (profile_dir / "default.json").write_text(
+                json.dumps(profile_document, indent=2),
+                encoding="utf-8",
+            )
+        elif profile_mode == "compatibility":
+            compatibility_path = workspace_root / ".codex" / "workspace-profile" / "PROFILE.json"
+            compatibility_path.parent.mkdir(parents=True, exist_ok=True)
+            compatibility_path.write_text(
+                json.dumps(profile_document, indent=2),
+                encoding="utf-8",
+            )
+        else:
+            raise ValueError(f"unsupported profile_mode: {profile_mode}")
         return workspace_root
 
     def _project_index_text(self) -> str:
@@ -162,16 +189,15 @@ class WorkspaceRouterTests(unittest.TestCase):
 - Backup path:
   - `C:\\workspace\\backups\\alpha-project`
 - Memory root:
-  - `C:\\workspace\\.agent-memory\\alpha-project`
+  - `C:\\workspace\\repos\\alpha-project\\.agent-memory`
 - Read-first files:
-  - `C:\\workspace\\.agent-memory\\alpha-project\\START_HERE.md`
-  - `C:\\workspace\\.agent-memory\\alpha-project\\PROJECT_RULES.md`
+  - `C:\\workspace\\repos\\alpha-project\\.agent-memory\\PROJECT.md`
 - Optional files:
-  - `C:\\workspace\\.agent-memory\\alpha-project\\AI_HANDOVER.md`
-  - `C:\\workspace\\.agent-memory\\alpha-project\\AGENT_DESIGN.md`
+  - `C:\\workspace\\repos\\alpha-project\\.agent-memory\\AI_HANDOVER.md`
+  - `C:\\workspace\\repos\\alpha-project\\.agent-memory\\AGENT_DESIGN.md`
 - Strong match signals:
   - explicit repo path `C:\\workspace\\repos\\alpha-project`
-  - explicit memory path `C:\\workspace\\.agent-memory\\alpha-project`
+  - explicit memory path `C:\\workspace\\repos\\alpha-project\\.agent-memory`
   - project slug `alpha-project`
   - project name `Alpha Project`
   - explicit routing keyword `shared-suite`
@@ -188,16 +214,15 @@ class WorkspaceRouterTests(unittest.TestCase):
 - Backup path:
   - `C:\\workspace\\backups\\beta-project`
 - Memory root:
-  - `C:\\workspace\\.agent-memory\\beta-project`
+  - `C:\\workspace\\repos\\beta-project\\.agent-memory`
 - Read-first files:
-  - `C:\\workspace\\.agent-memory\\beta-project\\START_HERE.md`
-  - `C:\\workspace\\.agent-memory\\beta-project\\PROJECT_RULES.md`
+  - `C:\\workspace\\repos\\beta-project\\.agent-memory\\PROJECT.md`
 - Optional files:
-  - `C:\\workspace\\.agent-memory\\beta-project\\AI_HANDOVER.md`
-  - `C:\\workspace\\.agent-memory\\beta-project\\AGENT_DESIGN.md`
+  - `C:\\workspace\\repos\\beta-project\\.agent-memory\\AI_HANDOVER.md`
+  - `C:\\workspace\\repos\\beta-project\\.agent-memory\\AGENT_DESIGN.md`
 - Strong match signals:
   - explicit repo path `C:\\workspace\\repos\\beta-project`
-  - explicit memory path `C:\\workspace\\.agent-memory\\beta-project`
+  - explicit memory path `C:\\workspace\\repos\\beta-project\\.agent-memory`
   - project slug `beta-project`
   - project name `Beta Project`
   - explicit routing keyword `shared-suite`
@@ -210,3 +235,4 @@ class WorkspaceRouterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

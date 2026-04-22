@@ -11,7 +11,7 @@ Portable Project Bootstrap now acts as the runtime center of a small workspace s
 - bootstrap runtime
   Handles brand-new project initialization through planning, execution, the guarded live wrapper, and a development-ready repo layer for Python-first projects.
 - `workspace-router`
-  Routes existing-project work to the correct repo and repo-external memory without invoking bootstrap.
+  Routes existing-project work to the correct repo and project-local `.agent-memory/` without invoking bootstrap.
 - live wrapper
   Centralizes bootstrap mode selection for `new`, `legacy`, and `shadow`. The built-in default remains `new`.
 
@@ -25,6 +25,16 @@ Portable Project Bootstrap now acts as the runtime center of a small workspace s
   1. explicit `profile_path`
   2. primary path
   3. compatibility fallback path
+
+Compatibility window:
+
+- retain compatibility profile discovery, legacy workspace-doc discovery, and deprecated explicit-entry workspace-doc aliases only through `2026-06-30`
+- compatibility surfaces still in scope:
+  - `workspace_root/.codex/workspace-profile/PROFILE.json`
+  - implicit fallback from `WORKSPACE.md` to `WORKSPACE_RULES.md` or `WORKSPACE_START_HERE.md` when `workspace_doc_path` is absent
+  - deprecated explicit-entry aliases `--workspace-start-here` and `--workspace-rules`
+- validator and router should keep warning when the compatibility profile path is used during this window
+- after `2026-06-30`, the intended steady state is the primary machine-profile path plus `WORKSPACE.md`
 
 ## Profile Schema
 
@@ -232,6 +242,8 @@ Bootstrap execute-path evidence must also satisfy:
 - preferably covering at least two different project slugs or project contexts
 
 Keep the fixed observation fields stable so samples stay comparable across the full window.
+
+Compatibility cleanup is gated separately from `legacy` rollback retention. The compatibility surfaces above exist only to complete the workspace-document migration; they do not justify keeping `legacy` longer than the rollback evidence requires.
 
 ## Legacy Deprecation Readiness Checklist
 

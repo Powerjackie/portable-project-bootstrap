@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import tempfile
 import unittest
@@ -28,13 +28,12 @@ def sample_project_index() -> str:
 - Backup path:
   - `X:\\backup\\existing-project`
 - Memory root:
-  - `X:\\memory\\existing-project`
+  - `X:\\repo\\existing-project\\.agent-memory`
 - Read-first files:
-  - `X:\\memory\\existing-project\\START_HERE.md`
-  - `X:\\memory\\existing-project\\PROJECT_RULES.md`
+  - `X:\\repo\\existing-project\\.agent-memory\\PROJECT.md`
 - Optional files:
-  - `X:\\memory\\existing-project\\AI_HANDOVER.md`
-  - `X:\\memory\\existing-project\\AGENT_DESIGN.md`
+  - `X:\\repo\\existing-project\\.agent-memory\\AI_HANDOVER.md`
+  - `X:\\repo\\existing-project\\.agent-memory\\AGENT_DESIGN.md`
 - Strong match signals:
   - project slug `existing-project`
 - Weak hints only:
@@ -55,13 +54,12 @@ def multi_section_project_index() -> str:
 - Backup path:
   - `X:\\backup\\alpha-project`
 - Memory root:
-  - `X:\\memory\\alpha-project`
+  - `X:\\repo\\alpha-project\\.agent-memory`
 - Read-first files:
-  - `X:\\memory\\alpha-project\\START_HERE.md`
-  - `X:\\memory\\alpha-project\\PROJECT_RULES.md`
+  - `X:\\repo\\alpha-project\\.agent-memory\\PROJECT.md`
 - Optional files:
-  - `X:\\memory\\alpha-project\\AI_HANDOVER.md`
-  - `X:\\memory\\alpha-project\\AGENT_DESIGN.md`
+  - `X:\\repo\\alpha-project\\.agent-memory\\AI_HANDOVER.md`
+  - `X:\\repo\\alpha-project\\.agent-memory\\AGENT_DESIGN.md`
 - Strong match signals:
   - project slug `alpha-project`
 - Weak hints only:
@@ -77,13 +75,12 @@ def multi_section_project_index() -> str:
 - Backup path:
   - `X:\\backup\\zeta-project`
 - Memory root:
-  - `X:\\memory\\zeta-project`
+  - `X:\\repo\\zeta-project\\.agent-memory`
 - Read-first files:
-  - `X:\\memory\\zeta-project\\START_HERE.md`
-  - `X:\\memory\\zeta-project\\PROJECT_RULES.md`
+  - `X:\\repo\\zeta-project\\.agent-memory\\PROJECT.md`
 - Optional files:
-  - `X:\\memory\\zeta-project\\AI_HANDOVER.md`
-  - `X:\\memory\\zeta-project\\AGENT_DESIGN.md`
+  - `X:\\repo\\zeta-project\\.agent-memory\\AI_HANDOVER.md`
+  - `X:\\repo\\zeta-project\\.agent-memory\\AGENT_DESIGN.md`
 - Strong match signals:
   - project slug `zeta-project`
 - Weak hints only:
@@ -146,7 +143,7 @@ class ExecutionTests(unittest.TestCase):
             self.assertEqual(ExecutionStatus.WOULD_APPLY, execution_result.bootstrap_log_status)
             self.assertEqual(ExecutionStatus.WOULD_APPLY, execution_result.project_index_status)
             self.assertFalse((repo_root / "portable-project-bootstrap").exists())
-            self.assertFalse((memory_root / "portable-project-bootstrap").exists())
+            self.assertFalse((repo_root / "portable-project-bootstrap" / ".agent-memory").exists())
             self.assertEqual(
                 len(planning_result.actions),
                 len(execution_result.records),
@@ -173,7 +170,7 @@ class ExecutionTests(unittest.TestCase):
             self.assertEqual(ExecutionStatus.APPLIED, execution_result.bootstrap_log_status)
             self.assertEqual(ExecutionStatus.APPLIED, execution_result.project_index_status)
             repo_path = repo_root / "portable-project-bootstrap"
-            memory_path = memory_root / "portable-project-bootstrap"
+            memory_path = repo_path / ".agent-memory"
             self.assertTrue((repo_path / "README.md").exists())
             self.assertTrue((memory_path / "BOOTSTRAP_LOG.md").exists())
             log_text = (memory_path / "BOOTSTRAP_LOG.md").read_text(encoding="utf-8")
@@ -181,6 +178,7 @@ class ExecutionTests(unittest.TestCase):
             index_text = project_index_path.read_text(encoding="utf-8")
             self.assertIn("## portable-project-bootstrap", index_text)
             self.assertLess(index_text.index("## existing-project"), index_text.index("## portable-project-bootstrap"))
+            self.assertEqual(("missing_slug_entry",), planning_result.summary.project_index_update_reasons)
 
     def test_manual_patch_is_reported_without_index_write(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -203,7 +201,7 @@ class ExecutionTests(unittest.TestCase):
             self.assertEqual(ExecutionStatus.REPORTED, execution_result.project_index_status)
             self.assertEqual(1, len(execution_result.manual_patch_records))
             self.assertEqual("# broken\n", project_index_path.read_text(encoding="utf-8"))
-            self.assertTrue((memory_root / "portable-project-bootstrap" / "BOOTSTRAP_LOG.md").exists())
+            self.assertTrue((repo_root / "portable-project-bootstrap" / ".agent-memory" / "BOOTSTRAP_LOG.md").exists())
 
     def test_partial_state_requires_force(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -218,7 +216,7 @@ class ExecutionTests(unittest.TestCase):
             project_index_path.write_text(sample_project_index(), encoding="utf-8")
 
             repo_path = repo_root / "portable-project-bootstrap"
-            memory_path = memory_root / "portable-project-bootstrap"
+            memory_path = repo_path / ".agent-memory"
             repo_path.mkdir()
             memory_path.mkdir()
             (repo_path / "README.md").write_text("existing readme\n", encoding="utf-8")
@@ -242,7 +240,7 @@ class ExecutionTests(unittest.TestCase):
             project_index_path.write_text(sample_project_index(), encoding="utf-8")
 
             repo_path = repo_root / "portable-project-bootstrap"
-            memory_path = memory_root / "portable-project-bootstrap"
+            memory_path = repo_path / ".agent-memory"
             repo_path.mkdir()
             memory_path.mkdir()
             (repo_path / "README.md").write_text("existing readme\n", encoding="utf-8")
@@ -261,7 +259,7 @@ class ExecutionTests(unittest.TestCase):
 
             execution_result = execute_plan(planning_result)
             self.assertEqual(ExecutionStatus.APPLIED, execution_result.bootstrap_log_status)
-            self.assertTrue((memory_path / "START_HERE.md").exists())
+            self.assertTrue((memory_path / "PROJECT.md").exists())
             self.assertIn("action=`bootstrap`", (memory_path / "BOOTSTRAP_LOG.md").read_text(encoding="utf-8"))
 
     def test_skip_nonempty_file_fails_closed_if_file_becomes_empty_before_execution(self) -> None:
@@ -277,12 +275,12 @@ class ExecutionTests(unittest.TestCase):
             project_index_path.write_text(sample_project_index(), encoding="utf-8")
 
             repo_path = repo_root / "portable-project-bootstrap"
-            memory_path = memory_root / "portable-project-bootstrap"
+            memory_path = repo_path / ".agent-memory"
             repo_path.mkdir()
             memory_path.mkdir()
             readme_path = repo_path / "README.md"
             readme_path.write_text("existing readme\n", encoding="utf-8")
-            for name in ("START_HERE.md", "PROJECT_RULES.md", "AI_HANDOVER.md", "AGENT_DESIGN.md", "BOOTSTRAP_LOG.md"):
+            for name in ("PROJECT.md", "AI_HANDOVER.md", "AGENT_DESIGN.md", "BOOTSTRAP_LOG.md"):
                 (memory_path / name).write_text("existing\n", encoding="utf-8")
 
             planning_result = plan_bootstrap(
@@ -329,11 +327,11 @@ class ExecutionTests(unittest.TestCase):
             project_index_path.write_text(sample_project_index(), encoding="utf-8")
 
             repo_path = repo_root / "portable-project-bootstrap"
-            memory_path = memory_root / "portable-project-bootstrap"
+            memory_path = repo_path / ".agent-memory"
             repo_path.mkdir()
             memory_path.mkdir()
             (repo_path / "README.md").write_text("existing readme\n", encoding="utf-8")
-            for name in ("START_HERE.md", "PROJECT_RULES.md", "AI_HANDOVER.md", "AGENT_DESIGN.md"):
+            for name in ("PROJECT.md", "AI_HANDOVER.md", "AGENT_DESIGN.md"):
                 (memory_path / name).write_text("existing\n", encoding="utf-8")
             boot_log_path = memory_path / "BOOTSTRAP_LOG.md"
             boot_log_path.write_text("", encoding="utf-8")
@@ -368,6 +366,27 @@ class ExecutionTests(unittest.TestCase):
             with self.assertRaisesRegex(ExecutionError, "planned structured file is missing"):
                 execute_plan(planning_result)
 
+    def test_structured_safe_patch_fails_closed_if_index_file_changes_before_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            repo_root = temp_root / "repos"
+            memory_root = temp_root / "memory"
+            backup_root = temp_root / "backups"
+            repo_root.mkdir()
+            memory_root.mkdir()
+            backup_root.mkdir()
+            project_index_path = memory_root / "PROJECT_INDEX.md"
+            project_index_path.write_text(sample_project_index(), encoding="utf-8")
+
+            planning_result = plan_bootstrap(
+                context=self._context(repo_root, memory_root, backup_root, project_index_path),
+                request=self._request(dry_run=False),
+            )
+            project_index_path.write_text(sample_project_index() + "\n## drifted\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ExecutionError, "changed since planning"):
+                execute_plan(planning_result)
+
     def test_project_index_safe_patch_inserts_slug_sorted_among_multiple_sections(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
@@ -389,6 +408,81 @@ class ExecutionTests(unittest.TestCase):
             patch_content = planning_result.index_update_plan.action.patch_content or ""
             self.assertLess(patch_content.index("## alpha-project"), patch_content.index("## portable-project-bootstrap"))
             self.assertLess(patch_content.index("## portable-project-bootstrap"), patch_content.index("## zeta-project"))
+
+    def test_project_index_matching_paths_refreshes_stale_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            repo_root = temp_root / "repos"
+            memory_root = temp_root / "memory"
+            backup_root = temp_root / "backups"
+            repo_root.mkdir()
+            memory_root.mkdir()
+            backup_root.mkdir()
+            project_index_path = memory_root / "PROJECT_INDEX.md"
+            project_index_path.write_text(
+                f"""# Project Index
+
+## portable-project-bootstrap
+
+- Path: `{repo_root}\\portable-project-bootstrap` | Memory: `{repo_root}\\portable-project-bootstrap\\.agent-memory`
+- Read-first: `PROJECT.md`
+- Signals: slug `portable-project-bootstrap`
+- Note: stale routing note
+""",
+                encoding="utf-8",
+            )
+
+            planning_result = plan_bootstrap(
+                context=self._context(repo_root, memory_root, backup_root, project_index_path),
+                request=self._request(dry_run=True),
+            )
+
+            self.assertEqual("updated", planning_result.index_update_plan.result)
+            self.assertEqual(ActionKind.SAFE_PATCH, planning_result.index_update_plan.action.kind)
+            self.assertEqual(
+                ("strong_match_signals", "summary"),
+                planning_result.index_update_plan.update_reasons,
+            )
+            self.assertEqual(
+                ("strong_match_signals", "summary"),
+                planning_result.summary.project_index_update_reasons,
+            )
+            self.assertIn(
+                "project name `Portable Project Bootstrap`",
+                planning_result.index_update_plan.action.patch_content or "",
+            )
+
+    def test_project_index_structured_match_ignores_formatting_only_differences(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            repo_root = temp_root / "repos"
+            memory_root = temp_root / "memory"
+            backup_root = temp_root / "backups"
+            repo_root.mkdir()
+            memory_root.mkdir()
+            backup_root.mkdir()
+            project_index_path = memory_root / "PROJECT_INDEX.md"
+            project_index_path.write_text(
+                f"""# Project Index
+
+## portable-project-bootstrap
+
+- Path: `{repo_root}\\portable-project-bootstrap` | Memory: `{repo_root}\\portable-project-bootstrap\\.agent-memory`
+- Read-first: `PROJECT.md`
+- Signals: project name `Portable Project Bootstrap`, slug `portable-project-bootstrap`
+""",
+                encoding="utf-8",
+            )
+
+            planning_result = plan_bootstrap(
+                context=self._context(repo_root, memory_root, backup_root, project_index_path),
+                request=self._request(dry_run=True),
+            )
+
+            self.assertEqual("unchanged", planning_result.index_update_plan.result)
+            self.assertEqual(ActionKind.SKIP, planning_result.index_update_plan.action.kind)
+            self.assertEqual((), planning_result.index_update_plan.update_reasons)
+            self.assertEqual((), planning_result.summary.project_index_update_reasons)
 
     def test_project_index_conflicting_existing_slug_requires_manual_patch(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -415,7 +509,22 @@ class ExecutionTests(unittest.TestCase):
 
             self.assertEqual("manual_patch_required", planning_result.index_update_plan.result)
             self.assertEqual("manual_patch", planning_result.index_update_plan.action.kind)
-            self.assertIn("Insert this section into", planning_result.index_update_plan.manual_patch or "")
+            self.assertEqual(
+                (
+                    "canonical_repo_paths",
+                    "memory_root",
+                    "purpose",
+                    "read_first_files",
+                    "optional_files",
+                    "strong_match_signals",
+                    "summary",
+                ),
+                planning_result.index_update_plan.update_reasons,
+            )
+            self.assertIn(
+                "Replace the existing `## portable-project-bootstrap` section",
+                planning_result.index_update_plan.manual_patch or "",
+            )
 
     def _context(
         self,
@@ -432,8 +541,7 @@ class ExecutionTests(unittest.TestCase):
                 backup_root=backup_root,
             ),
             project_index_path=project_index_path,
-            workspace_start_here_path=memory_root / "WORKSPACE_START_HERE.md",
-            workspace_rules_path=memory_root / "WORKSPACE_RULES.md",
+            workspace_doc_path=memory_root / "WORKSPACE.md",
         )
 
     def _request(self, *, dry_run: bool, force: bool = False) -> BootstrapRequest:
@@ -449,3 +557,4 @@ class ExecutionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

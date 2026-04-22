@@ -39,8 +39,10 @@ from .models import (
 from .operator_cli import format_bridge_result_lines
 from .profile_loader import (
     COMPATIBILITY_PROFILE_PATH,
+    COMPATIBILITY_SUPPORT_END_DATE,
     CURRENT_PROFILE_SCHEMA_VERSION,
     PRIMARY_PROFILE_DIR,
+    compatibility_profile_warning,
     discover_profile_path,
     discover_profile_path_with_source,
     load_workspace_context,
@@ -74,6 +76,7 @@ __all__ = [
     "ExplicitEntrypointRequest",
     "CURRENT_PROFILE_SCHEMA_VERSION",
     "COMPATIBILITY_PROFILE_PATH",
+    "COMPATIBILITY_SUPPORT_END_DATE",
     "ExecutionError",
     "ExecutionResult",
     "ExecutionStatus",
@@ -103,6 +106,7 @@ __all__ = [
     "discover_profile_path_with_source",
     "discover_profile_path",
     "build_skill_caller_parser",
+    "compatibility_profile_warning",
     "execute_plan",
     "build_live_wrapper_parser",
     "format_bridge_result_lines",

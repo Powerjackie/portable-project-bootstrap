@@ -13,7 +13,7 @@ REPO_README_TEMPLATE = """# {project_name}
 ## Getting Started
 
 - Bootstrapped with a profile-driven workspace bootstrap flow.
-- Repo-external agent memory lives outside this repository.
+- Agent memory lives in a local-only workspace surface for this project.
 - Review `examples/README.md` for local adaptation notes.
 
 ## Development
@@ -28,9 +28,9 @@ REPO_README_TEMPLATE = """# {project_name}
 - Tech stack:
 {tech_stack_bullets}
 
-## Repo-External Memory
+## Agent Memory
 
-- Agent-facing project memory lives outside the repo at `{memory_path}`.
+- {repo_readme_memory_line}
 - Reserved backup path: `{backup_path}`.
 """
 
@@ -61,6 +61,9 @@ Thumbs.db
 # Logs and temp files
 *.log
 *.tmp
+
+# Agent memory (local, not committed)
+.agent-memory/
 """
 
 CONTRIBUTING_TEMPLATE = """# Contributing
@@ -71,7 +74,7 @@ Thanks for contributing to {project_name}.
 
 1. Read `README.md`.
 2. Review the examples under `examples/`.
-3. Keep agent-facing project memory outside the repo.
+3. {contributing_memory_line}
 
 ## Local Validation
 
@@ -80,7 +83,7 @@ Thanks for contributing to {project_name}.
 ## Notes
 
 - Avoid overwriting non-empty project files without review.
-- Keep human-facing docs in the repo and agent-facing docs outside the repo.
+- Keep human-facing docs in the repo and agent memory local-only.
 """
 
 LICENSE_TEMPLATE = """MIT License
@@ -152,65 +155,41 @@ Suggested uses:
 Replace placeholder content with real project examples as implementation evolves.
 """
 
-START_HERE_TEMPLATE = """# {project_name} External Agent Memory
+PROJECT_MEMORY_TEMPLATE = """# {project_name} Agent Memory
 
-This directory is the repo-external agent memory for `{project_name}`.
+## Identity
 
 - Canonical repo path: `{repo_path}`
-- Reserved backup path: `{backup_path}`
-- Memory root: `{memory_path}`
+- Backup path: `{backup_path}`
+- Memory root: `{memory_root_display}`
 
 ## Scope
 
-Use this memory when the task is specifically about `{project_name}`.
+- Use this memory when the task is specifically about `{project_name}`.
+- {project_memory_scope_line}
 
 ## Read Order
 
-1. Read `PROJECT_RULES.md`.
-2. If current state matters, read `AI_HANDOVER.md`.
-3. If architecture or durable technical decisions matter, read `AGENT_DESIGN.md`.
-4. If a fixed session bootstrap is needed and the file exists, read `SESSION_BOOTSTRAP.txt`.
+1. Read this file.
+2. For current priorities or blockers, read `AI_HANDOVER.md` (same directory).
+3. For architecture and durable contracts, read `AGENT_DESIGN.md` (same directory).
+4. Read `SESSION_BOOTSTRAP.txt` only when it exists and a fixed operator bootstrap is explicitly needed.
 
-## Hard Rules
+## Dev Commands
 
-- Do not create agent-facing docs inside the repo.
-- Keep project-specific agent rules, state, and design notes in this memory root.
-- Use `{documentation_update_playbook_path}` for future writeback routing.
-"""
+- Stack: {stack_summary}
+- Replace this section with concrete repo-specific commands once implementation exists.
 
-PROJECT_RULES_TEMPLATE = """# {project_name} Project Rules
+## Project-Unique Rules
 
-## Canonical Paths
-
-- Canonical repo path: `{repo_path}`
-- Memory root: `{memory_path}`
-- Reserved backup path: `{backup_path}`
-
-## Boundary
-
-- This memory is only for `{project_name}`.
-- Keep project-specific agent rules here, not in the repo.
-
-## Execution Guardrails
-
-- Inherit cross-project rules from `{workspace_rules_path}`.
-- Keep project-specific durable rules here only when they are truly project-specific.
-
-## Project Memory Discipline
-
-- Current state belongs in `AI_HANDOVER.md`.
-- Long-term rules belong in `PROJECT_RULES.md`.
-- Architecture belongs in `AGENT_DESIGN.md`.
-- Session-only reminders belong in `SESSION_BOOTSTRAP.txt` when that file exists.
-
-## Project-Specific Rules
-
-TBD
+- Inherit workspace-wide rules from `{workspace_doc_path}`.
+- Use `{memory_policy_path}` for writeback routing and file-home rules.
+- Keep only project-unique durable constraints here.
 """
 
 AI_HANDOVER_TEMPLATE = """# {project_name} AI Handover
 
-This file lives in repo-external memory at `{memory_path}\\AI_HANDOVER.md`.
+This file lives at `{ai_handover_location}`.
 
 ## Canonical Working Copy
 
@@ -237,7 +216,7 @@ This file lives in repo-external memory at `{memory_path}\\AI_HANDOVER.md`.
 
 AGENT_DESIGN_TEMPLATE = """# {project_name} Agent Design
 
-This file lives in repo-external memory at `{memory_path}\\AGENT_DESIGN.md`.
+This file lives at `{agent_design_location}`.
 
 ## Purpose
 
@@ -276,37 +255,18 @@ This file records `project-bootstrap` runs for `{project_name}`.
 """
 
 SESSION_BOOTSTRAP_TEMPLATE = """{project_name}
-Session bootstrap placeholder.
+Read `PROJECT.md` first, then use this file only for session-specific operator notes.
 """
 
 PROJECT_INDEX_ENTRY_TEMPLATE = """## {project_slug}
 
-- Purpose: {project_summary}
-- Canonical repo / runtime surface:
-  - `{repo_path}`
-- Backup path:
-  - `{backup_path}`
-- Memory root:
-  - `{memory_path}`
-- Read-first files:
-  - `{memory_path}\\START_HERE.md`
-  - `{memory_path}\\PROJECT_RULES.md`
-- Optional files:
-  - `{memory_path}\\AI_HANDOVER.md`
-  - `{memory_path}\\AGENT_DESIGN.md`
-{session_bootstrap_index_line}- Strong match signals:
-  - explicit repo path `{repo_path}`
-  - explicit memory path `{memory_path}`
-  - project slug `{project_slug}`
-  - project name `{project_name}`
-{strong_keyword_lines}- Weak hints only:
-{weak_keyword_lines}- Weak hints must not trigger the project by themselves. Use them only when another strong project signal already exists.
-- Summary: Repo and project-profile surface for {project_name}.
+- Path: `{repo_path}` | Memory: `{project_index_memory_path}`
+- Read-first: `PROJECT.md`
+- Signals: slug `{project_slug}`, project name `{project_name}`{strong_signal_suffix}
 """
 
 MEMORY_FILE_NAMES = {
-    "START_HERE.md",
-    "PROJECT_RULES.md",
+    "PROJECT.md",
     "AI_HANDOVER.md",
     "AGENT_DESIGN.md",
     "BOOTSTRAP_LOG.md",
@@ -319,8 +279,7 @@ def render_template_set(context: WorkspaceContext, request: BootstrapRequest, pa
     files: dict[str, str] = {
         "README.md": REPO_README_TEMPLATE.format(**data).rstrip() + "\n",
         ".gitignore": GITIGNORE_TEMPLATE.rstrip() + "\n",
-        "START_HERE.md": START_HERE_TEMPLATE.format(**data).rstrip() + "\n",
-        "PROJECT_RULES.md": PROJECT_RULES_TEMPLATE.format(**data).rstrip() + "\n",
+        "PROJECT.md": PROJECT_MEMORY_TEMPLATE.format(**data).rstrip() + "\n",
         "AI_HANDOVER.md": AI_HANDOVER_TEMPLATE.format(**data).rstrip() + "\n",
         "AGENT_DESIGN.md": AGENT_DESIGN_TEMPLATE.format(**data).rstrip() + "\n",
         "BOOTSTRAP_LOG.md": BOOTSTRAP_LOG_TEMPLATE.format(**data).rstrip() + "\n",
@@ -350,6 +309,8 @@ def is_memory_file_key(name: str) -> bool:
 
 
 def _template_context(context: WorkspaceContext, request: BootstrapRequest, paths: ProjectPaths) -> dict[str, str]:
+    inline_memory = _is_inline_memory(paths)
+    repo_memory_path = paths.repo_path / ".agent-memory"
     return {
         "project_name": request.project_name.strip(),
         "project_slug": request.project_slug.strip(),
@@ -358,18 +319,21 @@ def _template_context(context: WorkspaceContext, request: BootstrapRequest, path
         "project_type": request.project_type,
         "repo_path": str(paths.repo_path),
         "memory_path": str(paths.memory_path),
+        "memory_root_display": str(repo_memory_path if inline_memory else paths.memory_path),
         "backup_path": str(paths.backup_path),
         "tech_stack_bullets": _bullets(request.tech_stack, fallback="TBD"),
-        "strong_keyword_lines": _strong_keyword_lines(request.routing_keyword_strong),
-        "weak_keyword_lines": _keyword_lines(request.routing_keyword_weak, fallback="none"),
-        "session_bootstrap_index_line": _session_bootstrap_index_line(
-            enabled=request.create_session_bootstrap,
-            memory_path=str(paths.memory_path),
-        ),
-        "workspace_rules_path": str(context.workspace_rules_path or ""),
-        "documentation_update_playbook_path": _documentation_update_playbook_path(context),
+        "stack_summary": _stack_summary(request.tech_stack),
+        "project_index_memory_path": _project_index_memory_path(context, paths),
+        "strong_signal_suffix": _strong_signal_suffix(request.routing_keyword_strong),
+        "workspace_doc_path": str(context.workspace_doc_path or ""),
+        "memory_policy_path": _memory_policy_path(context),
         "development_lines": _development_lines(request),
         "validation_lines": _validation_lines(request),
+        "repo_readme_memory_line": _repo_readme_memory_line(paths),
+        "contributing_memory_line": _contributing_memory_line(paths),
+        "project_memory_scope_line": _project_memory_scope_line(paths),
+        "ai_handover_location": _memory_file_location(paths, "AI_HANDOVER.md"),
+        "agent_design_location": _memory_file_location(paths, "AGENT_DESIGN.md"),
         "year": str(dt.datetime.now().year),
     }
 
@@ -405,28 +369,51 @@ def _bullets(values: tuple[str, ...], fallback: str) -> str:
     return "\n".join(f"- {value}" for value in values)
 
 
-def _keyword_lines(values: tuple[str, ...], fallback: str) -> str:
-    if not values:
-        return f"  - `{fallback}`\n"
-    return "".join(f"  - `{value}`\n" for value in values)
+def _memory_policy_path(context: WorkspaceContext) -> str:
+    if context.workspace_doc_path is None:
+        return "MEMORY_POLICY.md"
+    return str(context.workspace_doc_path.parent / "MEMORY_POLICY.md")
 
 
-def _strong_keyword_lines(values: tuple[str, ...]) -> str:
+def _project_index_memory_path(context: WorkspaceContext, paths: ProjectPaths) -> str:
+    return str(paths.memory_path)
+
+
+def _strong_signal_suffix(values: tuple[str, ...]) -> str:
     if not values:
         return ""
-    return "".join(f"  - explicit routing keyword `{value}`\n" for value in values)
+    return "".join(f", `{value}`" for value in values)
 
 
-def _session_bootstrap_index_line(*, enabled: bool, memory_path: str) -> str:
-    if not enabled:
-        return ""
-    return (
-        f"  - `{memory_path}\\SESSION_BOOTSTRAP.txt` "
-        "(`session-only`, `operator-only`, not part of normal default reading path)\n"
-    )
+def _stack_summary(values: tuple[str, ...]) -> str:
+    if not values:
+        return "TBD"
+    return " / ".join(values)
 
 
-def _documentation_update_playbook_path(context: WorkspaceContext) -> str:
-    if context.workspace_start_here_path is None:
-        return "DOCUMENTATION_UPDATE_PLAYBOOK.md"
-    return str(context.workspace_start_here_path.parent / "DOCUMENTATION_UPDATE_PLAYBOOK.md")
+def _is_inline_memory(paths: ProjectPaths) -> bool:
+    return paths.memory_path == paths.repo_path / ".agent-memory"
+
+
+def _repo_readme_memory_line(paths: ProjectPaths) -> str:
+    if _is_inline_memory(paths):
+        return "Agent-facing project memory lives at `.agent-memory/` inside this repo (gitignored, never pushed)."
+    return f"Agent-facing project memory lives at `{paths.memory_path}` in external compatibility mode."
+
+
+def _contributing_memory_line(paths: ProjectPaths) -> str:
+    if _is_inline_memory(paths):
+        return "Agent memory at `.agent-memory/` is gitignored - do not commit it."
+    return "External compatibility-mode agent memory is local-only and must not be committed into the repo."
+
+
+def _project_memory_scope_line(paths: ProjectPaths) -> str:
+    if _is_inline_memory(paths):
+        return "Agent memory lives inside the repo at `.agent-memory/` but is gitignored (never pushed to remote)."
+    return f"Agent memory for this profile lives at `{paths.memory_path}` in external compatibility mode."
+
+
+def _memory_file_location(paths: ProjectPaths, filename: str) -> str:
+    if _is_inline_memory(paths):
+        return f"{paths.repo_path}/.agent-memory/{filename} (gitignored, not committed)"
+    return f"{paths.memory_path / filename} (external compatibility mode)"

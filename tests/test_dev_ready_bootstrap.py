@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import tempfile
 import unittest
@@ -33,7 +33,7 @@ class DevReadyBootstrapTests(unittest.TestCase):
 
             execution_result = execute_plan(planning_result)
             repo_path = repo_root / "portable-project-bootstrap"
-            memory_path = memory_root / "portable-project-bootstrap"
+            memory_path = repo_path / ".agent-memory"
 
             self.assertTrue((repo_path / ".git").is_dir())
             self.assertTrue((repo_path / ".gitignore").is_file())
@@ -43,7 +43,7 @@ class DevReadyBootstrapTests(unittest.TestCase):
             self.assertTrue((repo_path / "CONTRIBUTING.md").is_file())
             self.assertTrue((repo_path / "tests" / "test_smoke.py").is_file())
             self.assertTrue((repo_path / "examples" / "README.md").is_file())
-            self.assertTrue((memory_path / "START_HERE.md").is_file())
+            self.assertTrue((memory_path / "PROJECT.md").is_file())
             self.assertEqual("applied", execution_result.project_index_status.value)
 
     def test_git_init_can_be_disabled(self) -> None:
@@ -110,12 +110,12 @@ class DevReadyBootstrapTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root, memory_root, backup_root, project_index_path = self._roots(Path(temp_dir))
             repo_path = repo_root / "portable-project-bootstrap"
-            memory_path = memory_root / "portable-project-bootstrap"
+            memory_path = repo_path / ".agent-memory"
             repo_path.mkdir()
             memory_path.mkdir()
             (repo_path / "README.md").write_text("custom readme\n", encoding="utf-8")
             (repo_path / ".gitignore").write_text("custom ignore\n", encoding="utf-8")
-            for name in ("START_HERE.md", "PROJECT_RULES.md", "AI_HANDOVER.md", "AGENT_DESIGN.md"):
+            for name in ("PROJECT.md", "AI_HANDOVER.md", "AGENT_DESIGN.md"):
                 (memory_path / name).write_text("existing\n", encoding="utf-8")
             (memory_path / "BOOTSTRAP_LOG.md").write_text("", encoding="utf-8")
             (repo_path / ".git").mkdir()
@@ -138,13 +138,13 @@ class DevReadyBootstrapTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root, memory_root, backup_root, project_index_path = self._roots(Path(temp_dir))
             repo_path = repo_root / "portable-project-bootstrap"
-            memory_path = memory_root / "portable-project-bootstrap"
+            memory_path = repo_path / ".agent-memory"
             repo_path.mkdir()
             memory_path.mkdir()
             (repo_path / ".git").mkdir()
             (repo_path / "README.md").write_text("existing readme\n", encoding="utf-8")
             (repo_path / ".gitignore").write_text("existing ignore\n", encoding="utf-8")
-            for name in ("START_HERE.md", "PROJECT_RULES.md", "AI_HANDOVER.md", "AGENT_DESIGN.md"):
+            for name in ("PROJECT.md", "AI_HANDOVER.md", "AGENT_DESIGN.md"):
                 (memory_path / name).write_text("existing\n", encoding="utf-8")
             (memory_path / "BOOTSTRAP_LOG.md").write_text("", encoding="utf-8")
 
@@ -183,8 +183,7 @@ class DevReadyBootstrapTests(unittest.TestCase):
                 backup_root=backup_root,
             ),
             project_index_path=project_index_path,
-            workspace_start_here_path=memory_root / "WORKSPACE_START_HERE.md",
-            workspace_rules_path=memory_root / "WORKSPACE_RULES.md",
+            workspace_doc_path=memory_root / "WORKSPACE.md",
         )
 
     def _request(
@@ -217,3 +216,4 @@ class DevReadyBootstrapTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

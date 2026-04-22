@@ -1,4 +1,4 @@
-# Example Workspace Layout
+﻿# Example Workspace Layout
 
 This document shows a generic workspace layout for using Portable Project Bootstrap on your own machine.
 
@@ -6,17 +6,17 @@ This document shows a generic workspace layout for using Portable Project Bootst
 
 ```text
 <workspace_root>/
-├── .agent-memory/
-│   ├── machine-profiles/
-│   │   └── <profile_name>.json
-│   ├── WORKSPACE_START_HERE.md
-│   ├── WORKSPACE_RULES.md
-│   └── PROJECT_INDEX.md
-├── backups/
-└── ...
+鈹溾攢鈹€ .agent-memory/
+鈹?  鈹溾攢鈹€ machine-profiles/
+鈹?  鈹?  鈹斺攢鈹€ <profile_name>.json
+鈹?  鈹溾攢鈹€ WORKSPACE.md
+鈹?  鈹溾攢鈹€ 
+鈹?  鈹斺攢鈹€ PROJECT_INDEX.md
+鈹溾攢鈹€ backups/
+鈹斺攢鈹€ ...
 
 <repo_root>/
-└── <project_slug>/
+鈹斺攢鈹€ <project_slug>/
 ```
 
 Optional compatibility profile path:
@@ -44,4 +44,6 @@ Optional compatibility profile path:
 
 - Replace all placeholders with real absolute paths for your own machine.
 - Do not copy another user's private path layout verbatim.
-- Keep agent-facing project memory outside the repo.
+- Project-level agent memory now lives inside each repo at `.agent-memory/` and should be gitignored.
+
+

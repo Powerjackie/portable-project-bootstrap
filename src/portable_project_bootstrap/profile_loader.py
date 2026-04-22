@@ -10,6 +10,7 @@ from .models import WorkspaceContext, WorkspaceProfile
 PRIMARY_PROFILE_DIR = Path(".agent-memory") / "machine-profiles"
 COMPATIBILITY_PROFILE_PATH = Path(".codex") / "workspace-profile" / "PROFILE.json"
 CURRENT_PROFILE_SCHEMA_VERSION = 1
+COMPATIBILITY_SUPPORT_END_DATE = "2026-06-30"
 
 
 def discover_profile_path(workspace_root: Path, profile_name: str) -> Path:
@@ -38,6 +39,14 @@ def discover_profile_path_with_source(workspace_root: Path, profile_name: str) -
     )
 
 
+def compatibility_profile_warning() -> str:
+    return (
+        "compatibility profile path is in use; prefer the primary "
+        "`.agent-memory/machine-profiles/<profile>.json` path. "
+        f"This compatibility path is supported only through {COMPATIBILITY_SUPPORT_END_DATE}."
+    )
+
+
 def load_workspace_profile(
     *,
     workspace_root: Path,
@@ -56,6 +65,7 @@ def load_workspace_profile(
         repo_root=_required_absolute_dir_path(document, "repo_root"),
         memory_root=_required_absolute_dir_path(document, "memory_root"),
         backup_root=_required_absolute_dir_path(document, "backup_root"),
+        memory_mode=_optional_memory_mode(document),
     )
 
 
@@ -81,21 +91,11 @@ def load_workspace_context(
         "project_index_path",
         fallback=profile.memory_root / "PROJECT_INDEX.md",
     )
-    workspace_start_here_path = _optional_absolute_file_path(
-        document,
-        "workspace_start_here_path",
-        fallback=profile.memory_root / "WORKSPACE_START_HERE.md",
-    )
-    workspace_rules_path = _optional_absolute_file_path(
-        document,
-        "workspace_rules_path",
-        fallback=profile.memory_root / "WORKSPACE_RULES.md",
-    )
+    workspace_doc_path = _workspace_doc_path(document=document, memory_root=profile.memory_root)
     return WorkspaceContext(
         profile=profile,
         project_index_path=project_index_path,
-        workspace_start_here_path=workspace_start_here_path,
-        workspace_rules_path=workspace_rules_path,
+        workspace_doc_path=workspace_doc_path,
         resolved_profile_path=resolved_profile_path,
         resolved_profile_source=resolved_profile_source,
     )
@@ -190,3 +190,35 @@ def _optional_absolute_file_path(document: dict[str, object], key: str, *, fallb
     if not path.is_file():
         raise ProfileLoadError(f"profile field `{key}` must point to a file: {path}")
     return path
+
+
+def _optional_memory_mode(document: dict[str, object]) -> str:
+    value = document.get("memory_mode", "inline")
+    if not isinstance(value, str) or not value.strip():
+        raise ProfileLoadError("profile field `memory_mode` must be a non-empty string when provided")
+    cleaned = value.strip()
+    if cleaned not in {"inline", "external"}:
+        raise ProfileLoadError("profile field `memory_mode` must be one of: inline, external")
+    return cleaned
+
+
+def _workspace_doc_path(*, document: dict[str, object], memory_root: Path) -> Path:
+    explicit_path = document.get("workspace_doc_path")
+    if explicit_path is not None:
+        return _optional_absolute_file_path(document, "workspace_doc_path", fallback=memory_root / "WORKSPACE.md")
+
+    # Keep legacy workspace document names only during the current migration window.
+    candidates = (
+        memory_root / "WORKSPACE.md",
+        memory_root / "WORKSPACE_RULES.md",
+        memory_root / "WORKSPACE_START_HERE.md",
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            if not candidate.is_file():
+                raise ProfileLoadError(f"workspace document path must point to a file: {candidate}")
+            return candidate
+    raise ProfileLoadError(
+        "required workspace file is missing for `workspace_doc_path`: "
+        f"{memory_root / 'WORKSPACE.md'}"
+    )

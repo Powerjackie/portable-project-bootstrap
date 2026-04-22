@@ -1,4 +1,4 @@
-# Project Index
+﻿# Project Index
 
 ## existing-project
 
@@ -10,8 +10,8 @@
 - Memory root:
   - `X:\memory\existing-project`
 - Read-first files:
-  - `X:\memory\existing-project\START_HERE.md`
-  - `X:\memory\existing-project\PROJECT_RULES.md`
+  - `X:\memory\existing-project\PROJECT.md`
+  - `X:\memory\existing-project\PROJECT.md`
 - Optional files:
   - `X:\memory\existing-project\AI_HANDOVER.md`
   - `X:\memory\existing-project\AGENT_DESIGN.md`
@@ -21,3 +21,4 @@
   - `none`
 - Weak hints must not trigger the project by themselves. Use them only when another strong project signal already exists.
 - Summary: Existing project.
+

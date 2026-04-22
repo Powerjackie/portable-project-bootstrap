@@ -58,7 +58,8 @@ For Python-first projects, the bootstrap runtime now produces a development-read
 The suite is built around a few hard rules:
 
 - use profile-driven paths instead of hardcoded machine paths
-- keep repo content separate from repo-external memory
+- keep repo content separate from workspace-level routing docs
+- keep project agent memory local to each repo at `.agent-memory/` and gitignored
 - fail closed when required context is missing or invalid
 - report manual patch output instead of auto-applying unsafe structured edits
 - never silently fall back from `new` to `legacy`
@@ -232,6 +233,11 @@ Useful bootstrap toggles:
 - `--no-create-examples`
 - `--no-create-stack-metadata`
 
+Compatibility note for explicit-entry callers:
+
+- prefer `--workspace-doc`
+- `--workspace-start-here` and `--workspace-rules` remain accepted only through `2026-06-30`
+
 ## Profile Protocol
 
 Official protocol:
@@ -246,6 +252,16 @@ Discovery order:
 1. explicit `--profile-path`
 2. primary profile path
 3. compatibility fallback path
+
+Compatibility window:
+
+- the old profile path fallback and deprecated workspace-doc aliases are retained only through `2026-06-30`
+- the compatibility surfaces in scope are:
+  - `<workspace_root>/.codex/workspace-profile/PROFILE.json`
+  - legacy workspace document discovery fallback to `WORKSPACE_RULES.md` or `WORKSPACE_START_HERE.md` when `workspace_doc_path` is not set explicitly
+  - deprecated explicit-entry aliases `--workspace-start-here` and `--workspace-rules`
+- validator and router warn when the compatibility profile path is still in use
+- after `2026-06-30`, the intended steady-state contract is the primary machine-profile path plus `WORKSPACE.md`; compatibility cleanup can proceed once the observation window stays clean
 
 Profile rules:
 
@@ -352,6 +368,8 @@ The near-term goal is not deletion. The next decision point is whether `legacy` 
 - if evidence is still thin or mixed, keep gathering evidence
 
 See [docs/workspace-suite-overview.md](docs/workspace-suite-overview.md) for the full Phase 14 exit criteria.
+
+This compatibility window is intentionally shorter than `legacy` retention. `legacy` exists for bootstrap rollback and containment; the old profile-path and workspace-doc aliases exist only to finish the workspace document migration cleanly.
 
 ## Operational Classification
 

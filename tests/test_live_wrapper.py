@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import io
 import json
@@ -26,8 +26,7 @@ def sample_project_index() -> str:
 - Memory root:
   - `X:\\memory\\existing-project`
 - Read-first files:
-  - `X:\\memory\\existing-project\\START_HERE.md`
-  - `X:\\memory\\existing-project\\PROJECT_RULES.md`
+  - `X:\\memory\\existing-project\\PROJECT.md`
 - Optional files:
   - `X:\\memory\\existing-project\\AI_HANDOVER.md`
   - `X:\\memory\\existing-project\\AGENT_DESIGN.md`
@@ -186,8 +185,7 @@ class LiveWrapperTests(unittest.TestCase):
         memory_root.mkdir()
         backup_root.mkdir()
         (memory_root / "PROJECT_INDEX.md").write_text(sample_project_index(), encoding="utf-8")
-        (memory_root / "WORKSPACE_START_HERE.md").write_text("start\n", encoding="utf-8")
-        (memory_root / "WORKSPACE_RULES.md").write_text("rules\n", encoding="utf-8")
+        (memory_root / "WORKSPACE.md").write_text("workspace\n", encoding="utf-8")
         profile_dir = memory_root / "machine-profiles"
         profile_dir.mkdir(parents=True, exist_ok=True)
         (profile_dir / "default.json").write_text(
@@ -207,3 +205,4 @@ class LiveWrapperTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

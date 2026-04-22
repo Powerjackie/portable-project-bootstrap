@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from portable_project_bootstrap import CURRENT_PROFILE_SCHEMA_VERSION
+from portable_project_bootstrap import COMPATIBILITY_SUPPORT_END_DATE, CURRENT_PROFILE_SCHEMA_VERSION
 
 
 SRC_ROOT = Path(__file__).resolve().parent.parent / "src"
@@ -44,13 +44,13 @@ class ValidatorSubprocessTests(unittest.TestCase):
     def test_validator_subprocess_returns_error_for_missing_workspace_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace_root = self._create_workspace(Path(temp_dir), profile_mode="primary")
-            (workspace_root / ".agent-memory" / "WORKSPACE_RULES.md").unlink()
+            (workspace_root / ".agent-memory" / "WORKSPACE.md").unlink()
 
             result = self._run_validator(workspace_root=workspace_root, profile_name="default")
 
             self.assertEqual(1, result.returncode)
             self.assertIn("status: error", result.stdout)
-            self.assertIn("workspace_rules_path", result.stderr)
+            self.assertIn("workspace_doc_path", result.stderr)
 
     def test_validator_subprocess_reports_partial_for_compatibility_profile(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -62,6 +62,7 @@ class ValidatorSubprocessTests(unittest.TestCase):
             self.assertIn("status: partial", result.stdout)
             self.assertIn("profile_source: compatibility", result.stdout)
             self.assertIn("compatibility profile path is in use", result.stdout)
+            self.assertIn(COMPATIBILITY_SUPPORT_END_DATE, result.stdout)
 
     def test_validator_subprocess_explicit_profile_path_overrides_discovery(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -135,8 +136,8 @@ class ValidatorSubprocessTests(unittest.TestCase):
         memory_root.mkdir()
         backup_root.mkdir()
         (memory_root / "PROJECT_INDEX.md").write_text(self._project_index_text(), encoding="utf-8")
-        (memory_root / "WORKSPACE_START_HERE.md").write_text("start\n", encoding="utf-8")
-        (memory_root / "WORKSPACE_RULES.md").write_text("rules\n", encoding="utf-8")
+        (memory_root / "WORKSPACE.md").write_text("start\n", encoding="utf-8")
+        (memory_root / "WORKSPACE.md").write_text("rules\n", encoding="utf-8")
         profile_document = {
             "schema_version": CURRENT_PROFILE_SCHEMA_VERSION,
             "profile_name": "default",
@@ -175,8 +176,8 @@ class ValidatorSubprocessTests(unittest.TestCase):
 - Memory root:
   - `C:\\example\\memory\\example-project`
 - Read-first files:
-  - `C:\\example\\memory\\example-project\\START_HERE.md`
-  - `C:\\example\\memory\\example-project\\PROJECT_RULES.md`
+  - `C:\\example\\memory\\example-project\\PROJECT.md`
+  - `C:\\example\\memory\\example-project\\PROJECT.md`
 - Optional files:
   - `C:\\example\\memory\\example-project\\AI_HANDOVER.md`
   - `C:\\example\\memory\\example-project\\AGENT_DESIGN.md`
@@ -192,3 +193,4 @@ class ValidatorSubprocessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
