@@ -4,5 +4,7 @@
   "repo_root": "<repo_root>",
   "memory_root": "<workspace_root>/.agent-memory",
   "backup_root": "<workspace_root>/backups",
+  "project_index_path": "<workspace_root>/.agent-memory/PROJECT_INDEX.md",
+  "workspace_doc_path": "<workspace_root>/.agent-memory/WORKSPACE.md",
   "memory_mode": "inline"
 }

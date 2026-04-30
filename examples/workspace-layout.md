@@ -1,4 +1,4 @@
-﻿# Example Workspace Layout
+# Example Workspace Layout
 
 This document shows a generic workspace layout for using Portable Project Bootstrap on your own machine.
 
@@ -6,23 +6,55 @@ This document shows a generic workspace layout for using Portable Project Bootst
 
 ```text
 <workspace_root>/
-鈹溾攢鈹€ .agent-memory/
-鈹?  鈹溾攢鈹€ machine-profiles/
-鈹?  鈹?  鈹斺攢鈹€ <profile_name>.json
-鈹?  鈹溾攢鈹€ WORKSPACE.md
-鈹?  鈹溾攢鈹€ 
-鈹?  鈹斺攢鈹€ PROJECT_INDEX.md
-鈹溾攢鈹€ backups/
-鈹斺攢鈹€ ...
-
-<repo_root>/
-鈹斺攢鈹€ <project_slug>/
++-- .agent-memory/
+|   +-- machine-profiles/
+|   |   +-- <profile_name>.json
+|   +-- WORKSPACE.md
+|   +-- PROJECT_INDEX.md
++-- backups/
++-- repos/
+    +-- <project_slug>/
+        +-- .agent-memory/
 ```
 
 Optional compatibility profile path:
 
 ```text
 <workspace_root>/.codex/workspace-profile/PROFILE.json
+```
+
+## macOS Example
+
+```text
+/Users/example/Developer/workspace/
++-- .agent-memory/
++-- backups/
++-- repos/
+    +-- prompt-ide/
+        +-- .agent-memory/
+```
+
+## Recommended PROJECT_INDEX Path Style
+
+Use profile-driven placeholders instead of machine-specific absolute paths when editing `PROJECT_INDEX.md`.
+
+```markdown
+## prompt-ide
+- Path: `${repo_root}/prompt-ide` | Memory: `${repo_root}/prompt-ide/.agent-memory`
+- Read-first: `${repo_root}/prompt-ide/.agent-memory/PROJECT.md`
+- Signals: project slug `prompt-ide`, project name `Prompt IDE`
+```
+
+Optional backup and workspace-level references may also use `${memory_root}`, `${backup_root}`, and `${workspace_root}`.
+
+For remote projects, add `Route-Type:` explicitly:
+
+```markdown
+## qinglong
+- Path: `${repo_root}/qinglong` | Memory: `${memory_root}/qinglong`
+- Route-Type: `ssh:prompt-ide-vps`
+- Read-first: `${memory_root}/qinglong/PROJECT.md`
+- Signals: project slug `qinglong`, project name `QingLong`
 ```
 
 ## Brand-New Project Flow
@@ -42,8 +74,6 @@ Optional compatibility profile path:
 
 ## Notes
 
-- Replace all placeholders with real absolute paths for your own machine.
+- Replace all placeholders with real machine-local absolute roots in the profile, not in `PROJECT_INDEX.md`.
 - Do not copy another user's private path layout verbatim.
-- Project-level agent memory now lives inside each repo at `.agent-memory/` and should be gitignored.
-
-
+- Project-level agent memory lives inside each repo at `.agent-memory/` and should be gitignored.

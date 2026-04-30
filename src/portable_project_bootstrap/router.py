@@ -11,7 +11,11 @@ from .models import (
     WorkspaceRouteQuery,
     WorkspaceRouteResult,
 )
-from .profile_loader import compatibility_profile_warning, load_workspace_context
+from .profile_loader import (
+    compatibility_profile_warning,
+    load_workspace_context,
+    normalize_path_for_compare,
+)
 from .project_index import load_project_index_document
 
 
@@ -50,7 +54,11 @@ def route_workspace(
         warnings.append(compatibility_profile_warning())
 
     try:
-        document = load_project_index_document(context.project_index_path)
+        document = load_project_index_document(
+            context.project_index_path,
+            profile=context.profile,
+            workspace_root=workspace_root,
+        )
     except ProjectIndexParseError as exc:
         return WorkspaceRouteResult(
             status=OverallStatus.ERROR,
@@ -261,6 +269,8 @@ def _to_route_candidate(record, reason_labels: list[str]) -> RouteCandidate:
         read_first_files=record.read_first_files,
         summary=record.summary,
         match_reasons=tuple(dict.fromkeys(reason_labels)),
+        route_type="remote-ssh" if record.route_type == "ssh" else "local",
+        remote_host=record.remote_host,
     )
 
 
@@ -269,7 +279,7 @@ def _same_path_text(left: str, right: Path) -> bool:
 
 
 def _normalize_path_text(value: str) -> str:
-    return value.replace("/", "\\").casefold()
+    return normalize_path_for_compare(value)
 
 
 def _signal_matches(candidate_signal: str, query_value: str) -> bool:

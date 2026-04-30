@@ -337,6 +337,8 @@ class ProjectIndexRecord:
     summary: str
     raw_section: str
     project_names: tuple[str, ...] = ()
+    route_type: str = "local"
+    remote_host: str | None = None
 
 
 @dataclass(frozen=True)
@@ -372,6 +374,8 @@ class RouteCandidate:
     read_first_files: tuple[str, ...]
     summary: str
     match_reasons: tuple[str, ...] = ()
+    route_type: str = "local"
+    remote_host: str | None = None
 
 
 @dataclass(frozen=True)
@@ -394,6 +398,8 @@ class WorkspaceRouteResult:
                     f"matched_project_name: {self.matched_project.project_name or 'none'}",
                     f"repo_path: {self.matched_project.repo_path or 'none'}",
                     f"memory_path: {self.matched_project.memory_path or 'none'}",
+                    f"route_type: {self.matched_project.route_type}",
+                    f"remote_host: {self.matched_project.remote_host or 'none'}",
                     f"read_first_files: {format_list(self.matched_project.read_first_files)}",
                     f"match_reasons: {format_list(self.matched_project.match_reasons)}",
                 ]
@@ -405,6 +411,8 @@ class WorkspaceRouteResult:
                     "matched_project_name: none",
                     "repo_path: none",
                     "memory_path: none",
+                    "route_type: none",
+                    "remote_host: none",
                     "read_first_files: []",
                     "match_reasons: []",
                 ]

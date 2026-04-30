@@ -4,8 +4,10 @@ import argparse
 import sys
 from pathlib import Path
 
+from .errors import ProjectIndexParseError
 from .models import OverallStatus, WorkspaceValidationResult
 from .profile_loader import compatibility_profile_warning, load_workspace_context
+from .project_index import load_project_index_document
 
 
 def validate_workspace(
@@ -47,6 +49,15 @@ def validate_workspace(
             "workspace_doc_path": str(context.workspace_doc_path) if context.workspace_doc_path else "none",
         }
     )
+
+    try:
+        load_project_index_document(
+            context.project_index_path,
+            profile=context.profile,
+            workspace_root=workspace_root,
+        )
+    except ProjectIndexParseError as exc:
+        problems.append(str(exc))
 
     suite_repo_root = Path(__file__).resolve().parent.parent.parent
     package_root = Path(__file__).resolve().parent

@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .errors import ProjectIndexParseError
-from .models import ProjectIndexDocument, ProjectIndexRecord
+from .models import ProjectIndexDocument, ProjectIndexRecord, WorkspaceProfile
+from .profile_loader import ProfileLoadError, expand_path
 
 
 _SECTION_RE = re.compile(r"(?m)^##\s+(.+?)\s*$")
@@ -25,15 +26,29 @@ class ProjectIndexComparison:
         return self.path_conflict_fields + self.changed_fields
 
 
-def load_project_index_document(path: Path) -> ProjectIndexDocument:
+def load_project_index_document(
+    path: Path,
+    *,
+    profile: WorkspaceProfile | None = None,
+    workspace_root: Path | None = None,
+) -> ProjectIndexDocument:
     if not path.exists():
         raise ProjectIndexParseError(f"PROJECT_INDEX.md does not exist: {path}")
     if not path.is_file():
         raise ProjectIndexParseError(f"PROJECT_INDEX.md path must be a file: {path}")
-    return parse_project_index_document(path.read_text(encoding="utf-8"))
+    return parse_project_index_document(
+        path.read_text(encoding="utf-8"),
+        profile=profile,
+        workspace_root=workspace_root,
+    )
 
 
-def parse_project_index_document(text: str) -> ProjectIndexDocument:
+def parse_project_index_document(
+    text: str,
+    *,
+    profile: WorkspaceProfile | None = None,
+    workspace_root: Path | None = None,
+) -> ProjectIndexDocument:
     matches = list(_SECTION_RE.finditer(text))
     if not matches:
         raise ProjectIndexParseError("PROJECT_INDEX.md could not be safely parsed")
@@ -44,7 +59,14 @@ def parse_project_index_document(text: str) -> ProjectIndexDocument:
         start = match.start()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         block = text[start:end].rstrip()
-        records.append(_parse_record(slug=slug, block=block))
+        records.append(
+            _parse_record(
+                slug=slug,
+                block=block,
+                profile=profile,
+                workspace_root=workspace_root,
+            )
+        )
     return ProjectIndexDocument(preamble=preamble, records=tuple(records))
 
 
@@ -99,6 +121,8 @@ def compare_project_index_records(
         "strong_match_signals",
         "weak_hints",
         "summary",
+        "route_type",
+        "remote_host",
     ):
         if not _field_values_match(
             field_name,
@@ -113,23 +137,74 @@ def compare_project_index_records(
     )
 
 
-def _parse_record(*, slug: str, block: str) -> ProjectIndexRecord:
+def _parse_record(
+    *,
+    slug: str,
+    block: str,
+    profile: WorkspaceProfile | None,
+    workspace_root: Path | None,
+) -> ProjectIndexRecord:
     lines = block.splitlines()
     if any(line.startswith("- Path:") for line in lines):
-        return _parse_compact_record(slug=slug, block=block, lines=lines)
-    return _parse_verbose_record(slug=slug, block=block, lines=lines)
+        return _parse_compact_record(
+            slug=slug,
+            block=block,
+            lines=lines,
+            profile=profile,
+            workspace_root=workspace_root,
+        )
+    return _parse_verbose_record(
+        slug=slug,
+        block=block,
+        lines=lines,
+        profile=profile,
+        workspace_root=workspace_root,
+    )
 
 
-def _parse_verbose_record(*, slug: str, block: str, lines: list[str]) -> ProjectIndexRecord:
+def _parse_verbose_record(
+    *,
+    slug: str,
+    block: str,
+    lines: list[str],
+    profile: WorkspaceProfile | None,
+    workspace_root: Path | None,
+) -> ProjectIndexRecord:
     purpose = _extract_scalar(lines, "- Purpose:")
-    canonical_repo_paths = _extract_list(lines, "- Canonical repo / runtime surface:")
-    backup_paths = _extract_list(lines, "- Backup path:")
-    memory_roots = _extract_list(lines, "- Memory root:")
-    read_first_files = _extract_list(lines, "- Read-first files:")
-    optional_files = _extract_list(lines, "- Optional files:")
+    canonical_repo_paths = _extract_path_list(
+        lines,
+        "- Canonical repo / runtime surface:",
+        profile=profile,
+        workspace_root=workspace_root,
+    )
+    backup_paths = _extract_path_list(
+        lines,
+        "- Backup path:",
+        profile=profile,
+        workspace_root=workspace_root,
+    )
+    memory_roots = _extract_path_list(
+        lines,
+        "- Memory root:",
+        profile=profile,
+        workspace_root=workspace_root,
+    )
+    read_first_files = _extract_path_list(
+        lines,
+        "- Read-first files:",
+        profile=profile,
+        workspace_root=workspace_root,
+    )
+    optional_files = _extract_path_list(
+        lines,
+        "- Optional files:",
+        profile=profile,
+        workspace_root=workspace_root,
+    )
     strong_match_signals = _extract_list(lines, "- Strong match signals:")
     weak_hints = _extract_list(lines, "- Weak hints only:")
     summary = _extract_scalar(lines, "- Summary:")
+    normalized_route_type, remote_host = _parse_route_type(_extract_optional_scalar(lines, "- Route-Type:"))
     return ProjectIndexRecord(
         project_slug=slug,
         purpose=purpose,
@@ -143,23 +218,49 @@ def _parse_verbose_record(*, slug: str, block: str, lines: list[str]) -> Project
         summary=summary,
         raw_section=block,
         project_names=_project_names_from_signals(strong_match_signals),
+        route_type=normalized_route_type,
+        remote_host=remote_host,
     )
 
 
-def _parse_compact_record(*, slug: str, block: str, lines: list[str]) -> ProjectIndexRecord:
+def _parse_compact_record(
+    *,
+    slug: str,
+    block: str,
+    lines: list[str],
+    profile: WorkspaceProfile | None,
+    workspace_root: Path | None,
+) -> ProjectIndexRecord:
     path_line = _extract_scalar(lines, "- Path:")
     if " | Memory: " not in path_line:
         raise ProjectIndexParseError("compact PROJECT_INDEX path line must include `| Memory:`")
     repo_text, memory_text = path_line.split(" | Memory: ", 1)
-    read_first = (_normalize_item(_extract_scalar(lines, "- Read-first:")),)
+    read_first = (
+        _expand_path_value(
+            _normalize_item(_extract_scalar(lines, "- Read-first:")),
+            profile=profile,
+            workspace_root=workspace_root,
+        ),
+    )
     signals = _split_compact_signals(_extract_scalar(lines, "- Signals:"))
     note = _extract_optional_scalar(lines, "- Note:")
+    normalized_route_type, remote_host = _parse_route_type(_extract_optional_scalar(lines, "- Route-Type:"))
     return ProjectIndexRecord(
         project_slug=slug,
         purpose="",
-        canonical_repo_paths=(_normalize_item(repo_text.strip()),),
+        canonical_repo_paths=(
+            _expand_path_value(
+                _normalize_item(repo_text.strip()),
+                profile=profile,
+                workspace_root=workspace_root,
+            ),
+        ),
         backup_paths=(),
-        memory_root=_normalize_item(memory_text.strip()),
+        memory_root=_expand_path_value(
+            _normalize_item(memory_text.strip()),
+            profile=profile,
+            workspace_root=workspace_root,
+        ),
         read_first_files=read_first,
         optional_files=(),
         strong_match_signals=signals,
@@ -167,6 +268,8 @@ def _parse_compact_record(*, slug: str, block: str, lines: list[str]) -> Project
         summary=note or "",
         raw_section=block,
         project_names=_project_names_from_signals(signals),
+        route_type=normalized_route_type,
+        remote_host=remote_host,
     )
 
 
@@ -203,10 +306,53 @@ def _extract_list(lines: list[str], header: str) -> tuple[str, ...]:
     return tuple(values)
 
 
+def _extract_path_list(
+    lines: list[str],
+    header: str,
+    *,
+    profile: WorkspaceProfile | None,
+    workspace_root: Path | None,
+) -> tuple[str, ...]:
+    values = _extract_list(lines, header)
+    return tuple(
+        _expand_path_value(value, profile=profile, workspace_root=workspace_root) for value in values
+    )
+
+
 def _normalize_item(value: str) -> str:
     if value.startswith("`") and value.endswith("`") and len(value) >= 2:
         return value[1:-1]
     return value
+
+
+def _expand_path_value(
+    value: str,
+    *,
+    profile: WorkspaceProfile | None,
+    workspace_root: Path | None,
+) -> str:
+    if profile is None or workspace_root is None or "${" not in value:
+        return value
+    try:
+        return expand_path(value, profile, workspace_root=workspace_root)
+    except ProfileLoadError as exc:
+        raise ProjectIndexParseError(str(exc)) from exc
+
+
+def _parse_route_type(value: str | None) -> tuple[str, str | None]:
+    if value is None:
+        return "local", None
+    cleaned = _normalize_item(value).strip()
+    if not cleaned or cleaned == "local":
+        return "local", None
+    if cleaned.startswith("ssh:"):
+        host = cleaned.split(":", 1)[1].strip()
+        if not host:
+            raise ProjectIndexParseError("Route-Type `ssh:` must include a non-empty host alias")
+        return "ssh", host
+    raise ProjectIndexParseError(
+        "Route-Type must be `local` or `ssh:<host_alias>`"
+    )
 
 
 def _project_names_from_signals(signals: tuple[str, ...]) -> tuple[str, ...]:

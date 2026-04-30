@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 from pathlib import Path
 
 from .errors import ProfileLoadError
@@ -11,6 +13,7 @@ PRIMARY_PROFILE_DIR = Path(".agent-memory") / "machine-profiles"
 COMPATIBILITY_PROFILE_PATH = Path(".codex") / "workspace-profile" / "PROFILE.json"
 CURRENT_PROFILE_SCHEMA_VERSION = 1
 COMPATIBILITY_SUPPORT_END_DATE = "2026-06-30"
+_PATH_TOKEN_RE = re.compile(r"\$\{([^}]+)\}")
 
 
 def discover_profile_path(workspace_root: Path, profile_name: str) -> Path:
@@ -45,6 +48,38 @@ def compatibility_profile_warning() -> str:
         "`.agent-memory/machine-profiles/<profile>.json` path. "
         f"This compatibility path is supported only through {COMPATIBILITY_SUPPORT_END_DATE}."
     )
+
+
+def normalize_path_for_compare(value: str) -> str:
+    """Normalize a path-like string for cross-platform comparison only."""
+    if not value:
+        return ""
+    return os.path.normpath(str(value)).casefold()
+
+
+def expand_path(
+    value: str,
+    profile: WorkspaceProfile,
+    *,
+    workspace_root: Path,
+) -> str:
+    """Expand `${repo_root}` / `${memory_root}` / `${backup_root}` / `${workspace_root}` tokens."""
+    if not isinstance(value, str) or not value.strip():
+        raise ProfileLoadError("path value must be a non-empty string")
+    replacements = {
+        "repo_root": profile.repo_root.as_posix(),
+        "memory_root": profile.memory_root.as_posix(),
+        "backup_root": profile.backup_root.as_posix(),
+        "workspace_root": workspace_root.as_posix(),
+    }
+
+    def replace_token(match: re.Match[str]) -> str:
+        token = match.group(1)
+        if token not in replacements:
+            raise ProfileLoadError(f"unsupported path token `{token}`")
+        return replacements[token]
+
+    return _PATH_TOKEN_RE.sub(replace_token, value.strip())
 
 
 def load_workspace_profile(
