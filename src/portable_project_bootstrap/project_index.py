@@ -51,7 +51,10 @@ def parse_project_index_document(
 ) -> ProjectIndexDocument:
     matches = list(_SECTION_RE.finditer(text))
     if not matches:
-        raise ProjectIndexParseError("PROJECT_INDEX.md could not be safely parsed")
+        # An index containing only a preamble (or empty) is a legal "no projects yet"
+        # state. Return an empty document so validator/router/planner can treat a
+        # brand-new workspace uniformly and bootstrap can SAFE_PATCH the first slug.
+        return ProjectIndexDocument(preamble=text.rstrip(), records=())
     preamble = text[: matches[0].start()].rstrip()
     records: list[ProjectIndexRecord] = []
     for index, match in enumerate(matches):
