@@ -130,7 +130,7 @@ class CompatibilityBridgeTests(unittest.TestCase):
         memory_root.mkdir()
         backup_root.mkdir()
         (memory_root / "PROJECT_INDEX.md").write_text(
-            "# broken\n" if broken_index else sample_project_index(),
+            "## broken\n- Purpose: missing required fields\n" if broken_index else sample_project_index(),
             encoding="utf-8",
         )
         (memory_root / "WORKSPACE.md").write_text("workspace\n", encoding="utf-8")

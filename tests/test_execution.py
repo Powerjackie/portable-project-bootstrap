@@ -190,7 +190,8 @@ class ExecutionTests(unittest.TestCase):
             memory_root.mkdir()
             backup_root.mkdir()
             project_index_path = memory_root / "PROJECT_INDEX.md"
-            project_index_path.write_text("# broken\n", encoding="utf-8")
+            broken_index_text = "## broken\n- Purpose: missing required fields\n"
+            project_index_path.write_text(broken_index_text, encoding="utf-8")
 
             planning_result = plan_bootstrap(
                 context=self._context(repo_root, memory_root, backup_root, project_index_path),
@@ -200,7 +201,7 @@ class ExecutionTests(unittest.TestCase):
 
             self.assertEqual(ExecutionStatus.REPORTED, execution_result.project_index_status)
             self.assertEqual(1, len(execution_result.manual_patch_records))
-            self.assertEqual("# broken\n", project_index_path.read_text(encoding="utf-8"))
+            self.assertEqual(broken_index_text, project_index_path.read_text(encoding="utf-8"))
             self.assertTrue((repo_root / "portable-project-bootstrap" / ".agent-memory" / "BOOTSTRAP_LOG.md").exists())
 
     def test_partial_state_requires_force(self) -> None:

@@ -74,7 +74,7 @@ class OperatorIntegrationTests(unittest.TestCase):
             self.assertIn("project_index_result: manual_patch_required", stdout)
             self.assertIn("manual_patch_output:", stdout)
             self.assertEqual(
-                "# broken\n",
+                "## broken\n- Purpose: missing required fields\n",
                 (workspace_root / ".agent-memory" / "PROJECT_INDEX.md").read_text(encoding="utf-8"),
             )
 
