@@ -66,9 +66,9 @@ class OperatorSubprocessTests(unittest.TestCase):
 
     def test_subprocess_missing_workspace_file_fails(self) -> None:
         with self._materialized_fixture("brand_new") as workspace_root:
-            (workspace_root / ".agent-memory" / "WORKSPACE.md").unlink()
-            (workspace_root / ".agent-memory" / "WORKSPACE_RULES.md").unlink()
-            (workspace_root / ".agent-memory" / "WORKSPACE_START_HERE.md").unlink()
+            (workspace_root / ".agent-memory" / "WORKSPACE.md").unlink(missing_ok=True)
+            (workspace_root / ".agent-memory" / "WORKSPACE_RULES.md").unlink(missing_ok=True)
+            (workspace_root / ".agent-memory" / "WORKSPACE_START_HERE.md").unlink(missing_ok=True)
 
             result = self._run_module(workspace_root=workspace_root, profile_name="default")
             self.assertEqual(1, result.returncode)

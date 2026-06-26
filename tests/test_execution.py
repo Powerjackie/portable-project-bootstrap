@@ -424,7 +424,7 @@ class ExecutionTests(unittest.TestCase):
 
 ## portable-project-bootstrap
 
-- Path: `{repo_root}\\portable-project-bootstrap` | Memory: `{repo_root}\\portable-project-bootstrap\\.agent-memory`
+- Path: `{repo_root / "portable-project-bootstrap"}` | Memory: `{repo_root / "portable-project-bootstrap" / ".agent-memory"}`
 - Read-first: `PROJECT.md`
 - Signals: slug `portable-project-bootstrap`
 - Note: stale routing note
@@ -467,7 +467,7 @@ class ExecutionTests(unittest.TestCase):
 
 ## portable-project-bootstrap
 
-- Path: `{repo_root}\\portable-project-bootstrap` | Memory: `{repo_root}\\portable-project-bootstrap\\.agent-memory`
+- Path: `{repo_root / "portable-project-bootstrap"}` | Memory: `{repo_root / "portable-project-bootstrap" / ".agent-memory"}`
 - Read-first: `PROJECT.md`
 - Signals: project name `Portable Project Bootstrap`, slug `portable-project-bootstrap`
 """,
